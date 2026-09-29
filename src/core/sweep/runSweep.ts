@@ -33,6 +33,8 @@ export interface SweepManifest {
   /** Rows merged so far, so a reload can render before refetching. */
   rows: number
   scope: string
+  /** True when every chunk was served from local cache rather than fetched. */
+  fromCache?: boolean
 }
 
 export const SWEEP_VERSION = 'acs5:2023:screen:v1'
@@ -54,6 +56,8 @@ export interface SweepProgress {
   rows: number
   failed: number
   scope: string
+  /** True when every chunk was served from local cache rather than fetched. */
+  fromCache?: boolean
 }
 
 /**
@@ -104,6 +108,7 @@ export async function runSweep(options: {
 
   // 3. Fetch, merging as we go. One failed chunk costs that chunk, not the sweep.
   const merged = new Map<string, AreaRow>()
+  let anyFetched = false
 
   const report = () => {
     const done = manifest.chunks.filter((c) => c.status === 'done').length
@@ -137,6 +142,7 @@ export async function runSweep(options: {
         continue
       }
 
+      anyFetched = true
       const { header, rows } = await fetchChunk(zctas, SCREEN_VARS, censusKey, signal)
       const parsed = areaRowFromRaw(header, rows)
       for (const row of parsed) merged.set(row.zcta, row)
@@ -153,6 +159,7 @@ export async function runSweep(options: {
   }
 
   manifest.rows = merged.size
+  manifest.fromCache = !anyFetched
   await manifestStore.write('current', SWEEP_VERSION, manifest)
 
   return { rows: [...merged.values()], manifest }

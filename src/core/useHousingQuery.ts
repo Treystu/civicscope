@@ -134,6 +134,7 @@ export function useHousingQuery() {
         sweepStatus: 'ready',
         sweep: rows,
         sweepScope: scope.states,
+        sweepFromCache: manifest.fromCache === true,
         sweepError: failed
           ? `${failed} of ${manifest.chunks.length} areas could not be loaded. Everything shown is real; retry for the rest.`
           : undefined,

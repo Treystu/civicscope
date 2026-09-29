@@ -182,7 +182,7 @@ export function SweepTable({
       {visibleCount > 200 && (
         <div className="mt-3 flex items-center gap-3">
           <p className="text-xs text-slate-600">
-            Showing {num.format(Math.min(200, visibleCount))} of {num.format(totalCount)}.
+            Showing {num.format(Math.min(200, visible.length))} of {num.format(totalCount)}.
           </p>
           <button
             type="button"

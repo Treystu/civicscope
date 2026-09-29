@@ -30,6 +30,9 @@ const DEFAULT_PRESET = PRESETS[0]!
 
 const num = new Intl.NumberFormat('en-US')
 
+/** The ACS release the cached figures come from, so a cached number is never read as current. */
+const VINTAGE_LABEL = '2023 5-year release'
+
 export default function App() {
   const [view, setView] = useState<View>('explore')
   const [term, setTerm] = useState('')
@@ -358,6 +361,27 @@ export default function App() {
                 </section>
 
                 <Comparison drilldowns={q.drilldowns} onDeselect={q.deselect} />
+              </>
+            )}
+
+            {q.sweep.length > 0 && (
+              <>
+                {/*
+                  The figures are cached so a revisit is instant, which means a
+                  number on screen may be days old. Saying so is the difference
+                  between a cache that feels fast and one that misleads.
+                */}
+                {q.sweepFromCache && (
+                  <p className="mt-2 text-xs text-slate-500">
+                    Loaded from this browser&rsquo;s local cache. Figures come from the American Community
+                    Survey {VINTAGE_LABEL} and update annually; use Refresh in the cache panel to re-fetch.
+                  </p>
+                )}
+                {q.sweepError && (
+                  <p className="mt-2 rounded-md bg-amber-50 p-3 text-sm text-amber-900" role="status">
+                    {q.sweepError}
+                  </p>
+                )}
               </>
             )}
 
