@@ -286,6 +286,13 @@ export default function App() {
                   <strong>You do not have to wait.</strong> Look up a ZIP code above and you will get its full
                   figures immediately — that request is separate and takes a couple of seconds.
                 </p>
+                {/*
+                  The table is already usable while this runs, so the copy has to
+                  say so rather than implying the page is blocked.
+                */}
+                <p className="mt-1 text-sm text-slate-700">
+                  Rows appear below as each area loads; sorting and filtering work on what has arrived.
+                </p>
               </section>
             )}
 

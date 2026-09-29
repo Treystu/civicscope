@@ -134,7 +134,17 @@ add(
   SCREEN_VARS_LEN !== null && SCREEN_VARS_LEN <= 6,
   `the country-wide screen requests few variables (${SCREEN_VARS_LEN ?? '?'}) — Census latency scales with variable count`,
 )
-add(/Loading the country-wide screen/.test(app), 'the sweep is presented as non-blocking while it loads')
+// The sweep must not be presented as blocking, and the table must render while
+// chunks are still arriving rather than only after the last one lands.
+const flatAppSrc = app.replace(/\s+/g, ' ')
+add(
+  /You do not have to wait/.test(flatAppSrc),
+  'the country-wide screen tells the visitor it does not block other work',
+)
+add(
+  /\{q\.sweep\.length > 0 && \(/.test(flatAppSrc),
+  'the screening table renders from the first chunk, not only once the sweep completes',
+)
 
 // The notice must not be conditional on application state. It once rendered
 // only inside the "country-wide sweep loaded" branch, so it vanished for every
