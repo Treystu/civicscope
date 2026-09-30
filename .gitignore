@@ -17,3 +17,6 @@ dist/
 # .gate-request.txt is a local convenience copy of the request under review.
 gate-report.json
 .gate-request.txt
+
+# completion-gate scratch output (cf. .gate-request.txt)
+g3.txt

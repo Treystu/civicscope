@@ -257,6 +257,51 @@ const METRIC_FOR_VAR: Record<string, string> = {
 }
 
 /**
+ * Rejects any value that is not a plausible measurement, regardless of where
+ * it came from.
+ *
+ * This exists because a cache hit bypasses the parser entirely. Rows cached
+ * before the sentinel fix was shipped still hold -666666666 as a real number
+ * under the same version stamp, so they were replayed straight into the table
+ * and rendered as -666666666% and -$666,666,666. Version stamping alone did not
+ * clear them, because the stamp was not changed when the parser changed.
+ *
+ * So every value that came out of storage is passed through this before use. A
+ * negative number is never a valid figure from any of these tables, and a rate
+ * above 100 percent is not either, so anything failing those is treated as
+ * absent. This makes the guarantee independent of cache contents and of which
+ * build wrote them.
+ */
+export function sanitiseMetricValue(value: unknown, unit?: string): number | null {
+  if (value === null || value === undefined) return null
+  const n = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(n)) return null
+  if (isAcsSentinel(n)) return null
+  // No ACS estimate in this set is negative. A negative value can only be a
+  // missing-value encoding that slipped through, so it is treated as absent
+  // rather than displayed.
+  if (n < 0) return null
+  if (unit === 'percent' && n > 100) return null
+  return n
+}
+
+/** Applies sanitisation to a whole cached row. */
+export function sanitiseAreaRow(row: AreaRow): AreaRow {
+  const metrics: AreaRow['metrics'] = {}
+  for (const [key, value] of Object.entries(row.metrics ?? {})) {
+    const unit = key === 'median_rent_burden_pct' ? 'percent' : undefined
+    const clean = sanitiseMetricValue(value, unit)
+    if (clean !== null) metrics[key] = clean
+  }
+  const moes: AreaRow['moes'] = {}
+  for (const [key, value] of Object.entries(row.moes ?? {})) {
+    const clean = sanitiseMetricValue(value)
+    if (clean !== null) moes[key] = clean
+  }
+  return { ...row, metrics, moes }
+}
+
+/**
  * Parses a raw ACS response into rows.
  *
  * The geography column position is derived from the returned header rather than

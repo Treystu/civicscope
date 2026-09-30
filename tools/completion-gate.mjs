@@ -252,6 +252,51 @@ const acs = read('src/core/plugins/acs.ts')
 const scoring = read('src/core/scoring.ts')
 const acsCode = codeOnly(acs)
 
+// A cache hit bypasses the parser, so poisoned rows written by an older build
+// can replay verbatim. That is how -666666666 reappeared after the parser was
+// fixed: the stale rows were still cached under an unchanged version stamp.
+// The guarantee therefore has to be enforced at read and render time too, not
+// only in the parser.
+add(
+  /export function sanitiseAreaRow/.test(acsSrc) && /export function sanitiseMetricValue/.test(acsSrc),
+  'cached metrics are sanitised on read, so a poisoned cache cannot replay',
+)
+const sweepSrc = read('src/core/sweep/runSweep.ts')
+add(
+  /sanitiseAreaRow/.test(sweepSrc),
+  'the sweep applies sanitisation to cached chunks',
+)
+add(
+  /screen:v\d+-sanitised|parser-v\d+/.test(sweepSrc),
+  'the cache stamp changes when parsing behaviour changes, not only when the data does',
+)
+add(
+  /not yet imported/.test(read('src/ui/SweepTable.tsx')) &&
+    /not yet imported/.test(read('src/ui/MetricCard.tsx')),
+  'an absent figure is labelled, never rendered as a number or a dash',
+)
+
+// A rendered sentinel is the failure this whole guard exists to prevent, so it
+// is checked against the live deployment rather than trusted from source.
+if (await tryFetch(`${SITE}/`)) {
+  const html = await tryFetch(`${SITE}/`)
+  if (html.body.includes('CivicScope')) {
+    // The bundle must carry the sanitiser, proving the deployed build is not the
+    // one that let sentinels through.
+    const ref = /\/assets\/index-[A-Za-z0-9_-]+\.js/.exec(html.body)?.[0]
+    if (ref) {
+      const js = await tryFetch(`${SITE}${ref}`)
+      if (js.body) {
+        add(
+          js.body.includes('-666666666') && js.body.includes('not yet imported'),
+          'the deployed bundle both recognises the sentinel and labels it',
+        )
+      }
+    }
+  }
+}
+
+
 // Every scoring rule must map to a metric some plugin can actually produce.
 // A composite pointing at a metric nothing emits silently returns null.
 const ruleKeys = [...codeOnly(scoring).matchAll(/key:\s*'([a-z_]+)'/g)].map((m) => m[1])

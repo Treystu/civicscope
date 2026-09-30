@@ -7,27 +7,38 @@ const usd = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 0,
 })
 
-const usdMonthly = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-})
+/**
+ * Renders a figure, or states plainly that there is none.
+ *
+ * The same guard as the screening table: a value that is absent, non-finite, or
+ * implausibly large is described rather than displayed. The Census Bureau encodes
+ * an absent estimate as a large negative number, and showing that as a figure
+ * would be a confident lie rather than a placeholder.
+ */
+const ABSENT_LABEL = 'not yet imported'
+
+function isDisplayable(value: number | null, unit: MetricValue['unit']): boolean {
+  if (value === null || !Number.isFinite(value) || value < 0) return false
+  if (unit === 'percent' && value > 100) return false
+  return true
+}
 
 function format(m: MetricValue): string {
-  if (m.value === null) return '—'
+  if (!isDisplayable(m.value, m.unit)) return ABSENT_LABEL
+  const v = m.value as number
   switch (m.unit) {
     case 'usd':
-      return usd.format(m.value)
+      return usd.format(v)
     case 'usd_monthly':
-      return `${usdMonthly.format(m.value)}/mo`
+      return `${usd.format(v)}/mo`
     case 'percent':
-      return `${m.value}%`
+      return `${v}%`
     case 'ratio':
-      return `${m.value}`
+      return `${v}`
     case 'count':
-      return m.value.toLocaleString('en-US')
+      return v.toLocaleString('en-US')
     default:
-      return String(m.value)
+      return String(v)
   }
 }
 
@@ -53,7 +64,7 @@ export function MetricCard({ metric, notice }: { metric: MetricValue; notice?: s
           <h3 className="text-sm font-medium text-slate-700">{metric.label}</h3>
           <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">
             {format(metric)}
-            {moe !== undefined && metric.value !== null && (
+            {moe !== undefined && isDisplayable(metric.value, metric.unit) && (
               <span className="ml-1 text-sm font-normal text-slate-500">
                 ±{metric.unit === 'percent' || metric.unit === 'ratio' ? moe : usd.format(moe)}
               </span>

@@ -10,7 +10,7 @@
 import { getCensusKey } from '../censusKey'
 import { manifestStore, sweepCache } from '../cache'
 import { budgetState, QuotaExhaustedError } from '../ratelimit'
-import { areaRowFromRaw, SCREEN_VARS, type AreaRow } from '../plugins/acs'
+import { areaRowFromRaw, sanitiseAreaRow, SCREEN_VARS, type AreaRow } from '../plugins/acs'
 import { CHUNK_SIZE, chunkKey, fetchChunk, groupByState, listAllZctas, planChunks, type ZctasByPrefix } from './chunk'
 
 export type ChunkStatus = 'pending' | 'active' | 'done' | 'failed'
@@ -40,7 +40,13 @@ export interface SweepManifest {
   budget?: { used: number; limit: number; remaining: number; day: string }
 }
 
-export const SWEEP_VERSION = 'acs5:2023:screen:v1'
+/**
+ * Bumped when the parser changed, not only when the source data did. Rows cached
+ * by the build that shipped sentinels as numbers were stored under v1 and replayed
+ * verbatim, because a cache hit skips parsing entirely. The stamp is the invalidation
+ * mechanism, so a parsing change must invalidate too.
+ */
+export const SWEEP_VERSION = 'acs5:2023:screen:v2-sanitised'
 
 export interface SweepScope {
   /** Empty means the whole country. Otherwise a list of two-digit ZIP prefixes. */
@@ -142,7 +148,12 @@ export async function runSweep(options: {
       // sustainable for a free tool.
       const cached = await sweepCache.read<AreaRow[]>(state.key, SWEEP_VERSION)
       if (cached) {
-        for (const row of cached.body) merged.set(row.zcta, row)
+        // A cache hit bypasses the parser, so cached values are sanitised here.
+        // Without this, rows cached before the sentinel fix are replayed as-is.
+        for (const row of cached.body) {
+          const clean = sanitiseAreaRow(row)
+          merged.set(clean.zcta, clean)
+        }
         state.status = 'done'
         options.onRows?.([...merged.values()], report())
         continue

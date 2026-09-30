@@ -22,12 +22,17 @@ const COLUMNS = [
   { key: 'households', label: 'Households', sort: 'households' as const },
 ] as const
 
+/**
+ * Renders a figure, or states plainly that there is none.
+ *
+ * A dash is ambiguous: it could mean zero, missing, or withheld. Anything that is
+ * not a plausible measurement is shown as "not yet imported" rather than
+ * invented, because the Census Bureau returns a large negative number for an
+ * absent estimate and that must never reach a reader as a figure.
+ */
 function fmt(value: number | null, unit: string): string {
-  // A dash is ambiguous: it could mean zero, missing, or withheld. The Census
-  // Bureau reports an absent estimate as a large negative number, so every
-  // genuinely absent figure arrives here as null and says so in words.
-  if (value === null) return 'not available'
-  if (unit === 'percent') return `${value}%`
+  if (value === null || !Number.isFinite(value) || value < 0) return 'not yet imported'
+  if (unit === 'percent') return value > 100 ? 'not yet imported' : `${value}%`
   if (unit === 'usd_monthly') return `${usd.format(value)}/mo`
   if (unit === 'usd') return usd.format(value)
   return num.format(value)
