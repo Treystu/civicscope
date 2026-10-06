@@ -93,19 +93,31 @@ rewrite.
 
 ## What would make the claim stronger
 
-In rough order of how much it would matter:
+Four candidate improvements were listed here. On 2026-10-06 the maintainer
+reviewed them and made two decisions, which are recorded rather than left
+dangling:
 
-1. Move the repository to somewhere no single account can delete, or accept that
-   an organisation is the owner and say so.
-2. Move donations to a public collective, so the balance is visible and the money
-   outlives the maintainer. This is the single change that would most improve the
-   stewardship position, and it is now the only gap on this list that concerns
-   money rather than ownership.
+1. **GitHub is where the project lives — decided, not pending.** The earlier
+   framing ("move the repository somewhere no single account can delete")
+   overstated the problem: every fork survives a repository's deletion, the work
+   is MIT-licensed and reproducible from public endpoints, and the exit path this
+   document already describes is exactly what makes the trade acceptable. The
+   organisation is the owner and this says so.
+2. **Personal payment routes are the chosen design — decided, not pending.** The
+   collective-vs-personal-account trade is real and already disclosed on the
+   funding section itself. What tips it is arithmetic: the project has received
+   no money, so "the money should outlive the maintainer" is a continuity
+   requirement about a balance of zero. A collective would improve the position
+   the day there is something to steward; until then it is an account to
+   maintain for its own sake.
+
+Still open, in rough order of how much they would matter:
+
 3. Record who holds the Cloudflare Pages account, and what happens to the
    deployment if they stop paying.
 4. Publish a change-log or incident record, so that "verified" has a history
-   rather than being a claim about the current state only.
+   rather than being a claim about the current state only. This is the one item
+   that is genuinely just work.
 
-Items 1 to 3 are decisions and accounts, not implementations, and pretending
-otherwise would be the exact overclaiming this document exists to prevent. Item 4
-is the one thing on this list that is genuinely just work.
+Items 3 and 4 are decisions and work respectively, and pretending they are
+already done would be the exact overclaiming this document exists to prevent.
