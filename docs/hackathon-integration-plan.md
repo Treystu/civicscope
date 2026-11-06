@@ -62,8 +62,8 @@ this table was executed from the lineage in this session.
 
 | ID | Capability | Lineage evidence | This repo today | Adaptation | Slice |
 | --- | --- | --- | --- | --- | --- |
-| I1 | ZIP to county index | `src/core/zcta-county-index.ts` (201 lines), `src/core/zcta-county-index.test.ts`, `public/map/zcta-counties.json` (339935 B, dictionary-packed) | Absent: `zcta-place-index` exists, no county counterpart | Regenerate the artefact with the generator this repo **already has** (`tools/gen-zcta-city-mapping.mjs` emits it); never copy the blob | S1 |
-| I2 | County aggregation | `src/core/county-aggregate.ts`, `src/core/county-aggregate.test.ts` | Absent | Straight port; consumes I1 | S1 |
+| I1 | ZIP to county index | `src/core/zcta-county-index.ts` (201 lines), `src/core/zcta-county-index.test.ts`, `public/map/zcta-counties.json` (339935 B, dictionary-packed) | **Landed in S1**: `src/core/zcta-county-index.ts`, `src/core/zcta-county-index.test.ts`, `public/map/zcta-counties.json` (384 KB, 33,791 records, 3,211 counties, regenerated here 2026-11-06) | Regenerated, not copied: `tools/gen-zcta-city-mapping.mjs` now emits the index from `tab20_zcta520_county20_natl.txt`, carrying the county GEOID and the ZCTA land share; 9,790 of 33,791 ZCTAs straddle a county boundary and the share is what lets the consumer disclose it | S1, landed |
+| I2 | County aggregation | `src/core/county-aggregate.ts`, `src/core/county-aggregate.test.ts` | **Landed in S1**: `src/core/county-aggregate.ts`, `src/core/county-aggregate.test.ts` | Written here rather than ported (the lineage module is not in this clone): sums counts only, reports an unknown count as unknown rather than a partial sum, refuses to aggregate medians (the publisher's county table is the source for those), and labels dominant-county attribution with its straddle count | S1, landed |
 | I3 | Result map | `src/core/map/result-geometry.ts` (335), `result-scale.ts`, `session-map.ts`, `gate-map.ts`, `src/core/map/result-geometry.test.ts`, `result-scale.test.ts`, `src/live/result-geometry.test.ts`, `src/e2e/result-map.e2e.ts` | Partial: `binning`, `centroids`, `projection`, `scale` only — no result map | Port with the probe-corrected TIGERweb query the module's own header records; the e2e is the acceptance proof | S2 |
 | I4 | Deterministic arithmetic check | `src/core/ai/arithmetic-check.ts` (160) | Absent | Straight port. Needs no model and no network, so it runs even when every provider is down | S3 |
 | I5 | National placeless screen | `src/core/ai/national-screen.ts` (432) | Absent | Port; the screen is deterministic, so the golden corpus is untouched | S3 |
@@ -111,7 +111,10 @@ Overdue rows are blockers. A row is closed only by the method named in it.
 
 ## 6. What is not claimed
 
-No slice is landed. No capability here is asserted to work in this repo. The
+S1 (I1 + I2) is landed on `lane/submission` as core modules with their tests and a
+regenerated artefact; no screen renders a county row from it yet, and that is
+deliberately stated rather than implied. No other slice is landed, and no
+capability here is asserted to work in this repo beyond the two rows above. The
 counts above are file and line reads of the lineage at `9403faa` plus the single
 `c3f4609` delta recorded as I12, and the "this repo today" column is a file-set
 comparison at `da989b0`, not a behavioural review of each module. The gate's red
