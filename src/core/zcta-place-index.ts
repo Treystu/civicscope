@@ -228,34 +228,34 @@ function normalise(text: string): string {
 }
 
 /**
- * Ranks places against a query.
+ * The per-bucket cap that ships.
  *
- * The order is fixed and documented rather than clever: an exact name, then a
- * prefix, then a word-boundary match, then any substring. Ties break on the
- * stable order `decodePlaces` already applied, so the same query always produces
- * the same list — an autocomplete that reorders itself between keystrokes is
- * unusable with a keyboard.
- *
- * There is deliberately no tiebreak by size. "Austin, TX" and "Austin, AR" are
- * both correct answers to "austin", and ordering them by population would be this
- * app ranking places, which is the one thing it does not do. Both are offered,
- * each with the ZIP codes it covers, and the reader chooses.
- *
- * Matches are bucketed by rank and each bucket is capped, rather than truncating
- * the whole scan part-way through. An earlier version stopped after 400 scored
- * entries, which silently cut off better matches that happened to sit later in
- * the alphabetical scan — a common query dropped its own exact matches.
+ * Exported so the Champion Audit (#74) can replay the shipped mechanism and its
+ * CAP 32 / CAP 128 variants through the same code rather than a copy of it: a
+ * re-implementation measures the re-implementation. Changing this value changes
+ * the shipped behaviour, so the audit treats it as the champion's constant.
  */
-export function searchPlaces(
+export const SEARCH_BUCKET_CAP = 64
+
+/**
+ * Ranks places against a query with an explicit bucket cap.
+ *
+ * Split out of `searchPlaces` for measurement only; the shipped entry point is
+ * `searchPlaces`, which passes `SEARCH_BUCKET_CAP`. Passing a different cap here
+ * changes nothing about which ranks are assigned, only how many matches per rank
+ * survive, so a cap comparison measures the cap and not some second algorithm.
+ */
+export function rankPlaces(
   places: PlaceSuggestion[],
   query: string,
-  limit = 8,
+  limit: number,
+  cap: number,
 ): PlaceSuggestion[] {
   const q = normalise(query)
   if (!q) return []
 
   const buckets: PlaceSuggestion[][] = [[], [], [], []]
-  const CAP = 64
+  const CAP = cap
 
   for (const place of places) {
     const name = place.displayName.toLowerCase()
@@ -280,6 +280,33 @@ export function searchPlaces(
     }
   }
   return out
+}
+
+/**
+ * Ranks places against a query.
+ *
+ * The order is fixed and documented rather than clever: an exact name, then a
+ * prefix, then a word-boundary match, then any substring. Ties break on the
+ * stable order `decodePlaces` already applied, so the same query always produces
+ * the same list — an autocomplete that reorders itself between keystrokes is
+ * unusable with a keyboard.
+ *
+ * There is deliberately no tiebreak by size. "Austin, TX" and "Austin, AR" are
+ * both correct answers to "austin", and ordering them by population would be this
+ * app ranking places, which is the one thing it does not do. Both are offered,
+ * each with the ZIP codes it covers, and the reader chooses.
+ *
+ * Matches are bucketed by rank and each bucket is capped, rather than truncating
+ * the whole scan part-way through. An earlier version stopped after 400 scored
+ * entries, which silently cut off better matches that happened to sit later in
+ * the alphabetical scan — a common query dropped its own exact matches.
+ */
+export function searchPlaces(
+  places: PlaceSuggestion[],
+  query: string,
+  limit = 8,
+): PlaceSuggestion[] {
+  return rankPlaces(places, query, limit, SEARCH_BUCKET_CAP)
 }
 
 /** The index, once loaded. Cheap to query; the parse is the expensive part. */
