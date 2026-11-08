@@ -15,7 +15,13 @@ import { isFresh, readCache, writeCache } from './cache'
 import { getJson, SourceUnavailableError } from './http'
 
 /** Cache freshness per source, driven by how often the upstream data changes. */
-const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000
+/**
+ * Plugin-fetch freshness: one day.
+ *
+ * Exported so the Champion Audit (#77) replays the shipped value rather than a
+ * copy of it. Changing this value changes shipped behaviour.
+ */
+export const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000
 
 export interface PluginResult {
   pluginId: string

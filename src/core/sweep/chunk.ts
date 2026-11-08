@@ -80,7 +80,16 @@ const ZCTA_WINDOWS: [string, string][] = [
  * is at most annually.
  */
 export const ENUM_CACHE_KEY = 'civicscope://zcta-enumeration/v1'
-const ENUM_TTL_MS = 90 * 24 * 60 * 60 * 1000
+
+/**
+ * Enumeration freshness: ninety days.
+ *
+ * Exported so the Champion Audit (#77) replays the shipped value rather than a
+ * copy of it. The key carries a version but no data vintage, which is why this
+ * lifetime is the one measured for a superseded list: see
+ * `docs/champion-audit-77-cache-freshness.md`.
+ */
+export const ENUM_TTL_MS = 90 * 24 * 60 * 60 * 1000
 
 /**
  * Enumerates every ZCTA in the country, keyless, in a handful of requests.

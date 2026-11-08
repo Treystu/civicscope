@@ -257,7 +257,15 @@ export async function cacheStatus(): Promise<{ chunks: number; approxRows: numbe
 // ---------------------------------------------------------------------------
 
 const RESPONSES = 'responses'
-const DEFAULT_TTL_MS = 30 * 24 * 60 * 60 * 1000
+
+/**
+ * Fallback freshness for a URL-keyed response when no caller supplies a TTL.
+ *
+ * Exported so the Champion Audit (#77) replays the shipped value rather than a
+ * copy of it; a duplicated constant would measure the copy. Changing this value
+ * changes shipped behaviour.
+ */
+export const DEFAULT_TTL_MS = 30 * 24 * 60 * 60 * 1000
 
 export interface ResponseRecord<T> {
   url: string
