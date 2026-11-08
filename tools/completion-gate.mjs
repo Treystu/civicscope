@@ -1292,7 +1292,20 @@ const normLabel = (s) => s.toLowerCase().replace(/\s+/g, ' ').trim().replace(/^t
 const resolveCitation = (proof, checks) =>
   checks.filter((x) => normLabel(x.label).startsWith(normLabel(proof)))
 
-{
+/*
+ * The per-clause resolution is emitted into the report, not only aggregated.
+ *
+ * This block used to collapse all 14 clauses into one check row, so a clause
+ * credited to a proof that does not measure it was invisible: the row read
+ * "every stated requirement is backed by exactly one check that passed", which
+ * was true, while clause 14 was credited to `unit + security tests` (P4 in
+ * docs/gate-tree-completeness-2026-11-08.md). The resolution already computed
+ * here is now written out per clause, so tools/clause-proof-audit.mjs can measure
+ * each one instead of trusting a single summary line. Scoring-neutral: no check,
+ * label, threshold or weight is added, removed or altered, and the deterministic
+ * count is unchanged.
+ */
+const CLAUSE_RECORDS = (() => {
   const cited = REQUIREMENTS.flatMap((r) => r.proofs.map((p) => ({ req: r.req, proof: p })))
   const resolved = cited.map((c) => ({ ...c, hits: resolveCitation(c.proof, results) }))
   const unproven = resolved.filter((c) => c.hits.length === 0 || !c.hits.every((x) => x.ok))
@@ -1329,7 +1342,30 @@ const resolveCitation = (proof, checks) =>
       resolveCitation(shippedSpecimen, results)[0].ok,
     'the citation matcher rejects a phrase that appears only mid-label and one that names several checks',
   )
-}
+
+  return {
+    // The pipeline steps, in run order. A clause credited only to one of these is
+    // credited to "the suite ran", which is a different claim from "this clause
+    // was measured" - the distinction tools/clause-proof-audit.mjs grades.
+    steps: [
+      ...gates.map((g) => g[0]),
+      'WCAG 2.2 AA audit (axe-core, real browser)',
+    ],
+    clauses: REQUIREMENTS.map((r) => ({
+      req: r.req,
+      proofs: cited
+        .filter((c) => c.req === r.req)
+        .map((c) => {
+          const hits = resolveCitation(c.proof, results)
+          return {
+            proof: c.proof,
+            labels: hits.map((x) => x.label),
+            passed: hits.length > 0 && hits.every((x) => x.ok),
+          }
+        }),
+    })),
+  }
+})()
 
 {
   const marginsProven = results.some(
@@ -1729,7 +1765,14 @@ console.log(
 const overall =
   jev === null ? (detOk ? 100 : 0) : detOk && jev.score >= THRESHOLD ? jev.score : Math.min(jev.score ?? 0, 98.9)
 
-writeFileSync(OUT, JSON.stringify({ threshold: THRESHOLD, register: REGISTER, deterministic: results, jev, overall }, null, 2))
+writeFileSync(
+  OUT,
+  JSON.stringify(
+    { threshold: THRESHOLD, register: REGISTER, clauses: CLAUSE_RECORDS, deterministic: results, jev, overall },
+    null,
+    2,
+  ),
+)
 console.log(`\n${c.b}Overall: ${overall}/100${c.x}  ${c.d}(report: ${OUT})${c.x}`)
 
 const passed = detOk && (jev === null || jev.score >= THRESHOLD)
