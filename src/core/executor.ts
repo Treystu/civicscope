@@ -10,7 +10,7 @@
  * own panel; the rest of the app keeps working.
  */
 
-import type { MetricValue, PluginRequest, Provenance, QueryContext, ZoomLevel } from './types'
+import type { MetricUnit, MetricValue, PluginRequest, Provenance, QueryContext, ZoomLevel } from './types'
 import { isFresh, readCache, writeCache } from './cache'
 import { getJson, SourceUnavailableError } from './http'
 
@@ -104,6 +104,23 @@ export function topological(ids: readonly string[], registry: PluginRegistry): s
 }
 
 /**
+ * The units whose small values minimum-n suppression withholds.
+ *
+ * This was the regex `/count|households|population|students/i`, which matched
+ * any unit string *containing* those words: a future unit named `account` or
+ * `discount` would have inherited household suppression without anyone
+ * deciding it should. Champion Audit #76 measured the whole unit union - eight
+ * values - and found the regex resolves to exactly `count` today, so this set
+ * is behaviour-identical now and makes a new unit an explicit decision instead
+ * of a substring accident. `institutions` stays out deliberately: a district
+ * with 3 schools is an exact administrative fact, not a small sample.
+ *
+ * Provenance is the axis the suppression rule actually cares about, and it is
+ * not yet expressible here - see docs/champion-audit-76-minimum-n.md.
+ */
+const SUPPRESSED_UNITS: ReadonlySet<MetricUnit> = new Set<MetricUnit>(['count'])
+
+/**
  * Applies centrally-enforced legal rules. Plugins cannot opt out of these.
  *
  * `protectedClassProxy` is stamped here rather than left to each plugin, for the
@@ -126,7 +143,7 @@ function applyLegalRules(
     }
     if (
       suppressBelow !== undefined &&
-      /count|households|population|students/i.test(stamped.unit) &&
+      SUPPRESSED_UNITS.has(stamped.unit) &&
       Math.abs(stamped.value) < suppressBelow
     ) {
       // Minimum-n suppression: the value is withheld, and the UI is required
