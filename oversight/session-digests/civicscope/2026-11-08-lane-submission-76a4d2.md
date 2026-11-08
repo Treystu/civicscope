@@ -36,6 +36,7 @@
 - emoji_scan: 0 findings, 238 files
 - mojibake_scan: 0 findings, 279 files
 - secret_scan: 0 findings, 283 files
+- head_pushed_final: d5dc6bb (this digest file only; no code, test or config change after the gate head)
 - gate_head_measured: c70e6601431f0f99b44d1a540e96fdff4f4913bc
 - gate_deterministic_at_c70e660: 100/100
 - gate_state_at_c70e660: PASSED, keyless (HOME/USERPROFILE pointed at an empty temp dir)
