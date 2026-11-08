@@ -11,7 +11,7 @@
 - window_start_utc: 2026-11-08T07:05:00Z
 - window_end_utc: 2026-11-08T07:55:00Z
 - head_start: b62e274
-- head_end: (this commit)
+- head_end: 4e7131c
 - pushed: true
 - pr32_state: HOLD, untouched
 - deployed: false
@@ -29,7 +29,7 @@
 - item_b_teeth: new deterministic check asserts the matcher rejects "mounted on the map surface" (mid-label only) and "Fair Housing notice" (starts four labels) while resolving "production serves a build" to exactly one passing check
 - item_b_not_settled: it does not measure whether the check measures the clause. P4 (clause 14 proven by "unit + security tests"), P5 (clause 12 origin, A3 open) and T8 (clause 7) are unchanged and recorded as open
 - scoring_neutral: no clause text, citation, weight, threshold or criterion changed; requirements_met is not moved by either change
-- gate_head_measured: this commit's parent (tree identical to the push)
+- gate_head_measured: 4e7131c, the pushed head, run after the commit so the tree under test is the tree at the head
 - gate_deterministic: 100/100 (was 98/98 checks; two added, none removed, renamed or weakened)
 - gate_score: 100/100, GATE PASSED, exit 0, keyless
 - gate_wcag: WCAG 2.2 AA audit passed on this run; the previous head's failure (T10, a Playwright navigation that did not resolve) is an environment fault that still reproduces intermittently and is not fixed here
