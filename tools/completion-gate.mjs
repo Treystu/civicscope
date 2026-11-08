@@ -1629,10 +1629,40 @@ if (jev?.error) {
   )
 }
 
+/*
+ * Rule 6 of the owner-ordered flush-tree discipline (2026-11-07): every verdict
+ * states whether its register was authored by the operator and whether a
+ * register-independent channel ran. This instrument's register is the
+ * REQUIREMENTS and JUDGE_ASPECTS lists above, both written by the operator, and
+ * every question it asks is `noul`, `score` or `choice` - all menu-bound. No
+ * open-ended question is asked, so the judge cannot name an aspect this list
+ * omits, with a key or without one. A run therefore cannot report completeness
+ * of its own tree, and `requirements_met` is a read of how well the evidence
+ * satisfies the operator's list, not of how complete the list is.
+ *
+ * Carried in the report rather than only in prose so the limitation travels with
+ * the number: an unrun completeness channel is a stated limitation, never a
+ * silent completeness claim. See docs/gate-tree-completeness-2026-11-08.md for
+ * the hunt, the purpose map, the premises and the planted-probe catch rates.
+ */
+const REGISTER = {
+  operator_authored: true,
+  authored_in: 'tools/completion-gate.mjs: REQUIREMENTS, JUDGE_ASPECTS, unmet_requirement criteria',
+  independent_channel: 'none: only noul, score and choice questions are asked, so every answer is drawn from the operator menu',
+  independent_channel_ran: false,
+  tree_complete: 'unrun',
+  limitation:
+    'This gate cannot report that its aspect tree is complete. An aspect the register omits is invisible to every verdict here, including requirements_met.',
+}
+console.log(
+  `  ${c.d}register: operator-authored; no register-independent channel ran (menu-bound questions only);` +
+    `\n            tree completeness is not measured by this gate.${c.x}`,
+)
+
 const overall =
   jev === null ? (detOk ? 100 : 0) : detOk && jev.score >= THRESHOLD ? jev.score : Math.min(jev.score ?? 0, 98.9)
 
-writeFileSync(OUT, JSON.stringify({ threshold: THRESHOLD, deterministic: results, jev, overall }, null, 2))
+writeFileSync(OUT, JSON.stringify({ threshold: THRESHOLD, register: REGISTER, deterministic: results, jev, overall }, null, 2))
 console.log(`\n${c.b}Overall: ${overall}/100${c.x}  ${c.d}(report: ${OUT})${c.x}`)
 
 const passed = detOk && (jev === null || jev.score >= THRESHOLD)
