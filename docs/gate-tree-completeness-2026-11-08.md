@@ -423,3 +423,48 @@ node tools/secret-scan.mjs .                        # 0 findings in 274 files
 
 The deterministic count rose from 98 to 100 because two checks were added; no
 existing check was removed, renamed or weakened.
+
+### 10.4 Every cited clause now measured, deterministically (P4 machine-found, not closed)
+
+Section 10.2 closed with "at least one of them still does not measure its clause",
+an honest reading of the register by hand: P4. That reading is now an instrument.
+
+`tools/completion-gate.mjs` writes the per-clause resolution it already computes
+into `gate-report.json` (`clauses`: each clause, each citation, the single label it
+resolved to, and whether that check passed, plus the pipeline `steps`).
+`tools/clause-proof-audit.mjs` measures every clause from that register alone and
+classifies each one: `unproven`, `label-opaque` (no cited check shares a subject
+word with the clause) or `subject-named`. Scoring-neutral: no check, label,
+threshold or weight was added, removed or altered, and the deterministic count
+stays 100.
+
+Measured on head `08279a9`, gate 100/100 keyless:
+
+```
+clauses: 14 (unproven 0, label-opaque 3, subject-named 11), 28 citations over 27 distinct proofs
+deterministic: two runs byte-identical (13370 bytes)
+digest: 3731d5ee06636657801c14748b6c822cf53b2cd9a1317fd396357fb2acca9a2a
+A5: pass 1, known-limitation 1, new-defect 0 (289 files scanned)
+```
+
+The three `label-opaque` clauses, each classified rather than merely flagged:
+
+- **clause 1** (everything works): proven by the build and test steps, which is
+  the right evidence for that clause - a known limitation of the metric, not a
+  defect.
+- **clause 12** (a selected domain, live): proven by `production serves a build`,
+  which fetches `SITE` (default `https://civicscope.pages.dev`), matches a hashed
+  bundle and passes. It proves liveness, not that a domain was selected - the same
+  finding already carried as P5, now produced by the instrument.
+- **clause 14**: proven by `unit + security tests`. **This is P4**, and it is now
+  reproduced from the shipped register on any head in one command.
+
+What this does not do, stated because it would be easy to read as closure: it
+measures whether a citation names its clause's subject, not whether the check
+tests the clause's claim. P4 stays open and stays an owner decision - re-cite
+clause 14 to a check that measures the gate's fail-closed decision, or add that
+check and re-cite - because both move the scored register.
+
+Record: `docs/clause-proof-audit-2026-11-08.md`. Pin:
+`tests/clause-proof-audit.test.ts`, which classifies constructed registers in both
+directions and requires two measurements of the same input to be byte-identical.
