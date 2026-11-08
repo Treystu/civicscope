@@ -63,6 +63,13 @@ digest: 3731d5ee06636657801c14748b6c822cf53b2cd9a1317fd396357fb2acca9a2a
 A5: pass 1, known-limitation 1, new-defect 0 (289 files scanned)
 ```
 
+Rerun on the exact delivery head `4772937` after the record was written: gate 100/100
+keyless again, the same 14 clauses and the same 0/3/11 classes, A5 pass 1 with
+290 files scanned (the record and digest files are new), and digest
+`0ba0b092a2348048571e28b9f4896833596aa2ff5c46780a474e57251a8aafcb`. The digest
+covers the A5 file count, so it moves when files are added while the clause
+classes do not - that is why the head is named beside each number.
+
 The counts reconcile by construction and the reconciliation is asserted: the
 three clause classes partition the 14 clauses (0 + 3 + 11), the A5 buckets account
 for the single claim plus its one declared limitation (1 + 1 + 0), and a pass with
