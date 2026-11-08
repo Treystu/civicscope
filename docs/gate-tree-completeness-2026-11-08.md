@@ -334,5 +334,92 @@ node --check tools/completion-gate.mjs
 node tools/emoji-scan.mjs .                        # 0 emoji in 232 files
 node tools/mojibake-scan.mjs .                     # 0 findings in 267 files
 grep -n "secret-scan" docs/hackathon-integration-plan.md   # A5's named method
-ls tools/secret-scan.mjs                                   # absent: No such file
+ls tools/secret-scan.mjs                                   # absent at the time of this pass; added below
 ```
+
+---
+
+## 10. Addendum, same day: the two next items that were filed in section 8
+
+The hunt above deferred two items deliberately. Both landed in the following
+pass, and this section records them against the findings they answer, including
+what they do not answer. The clause texts, weights, threshold and scored register
+are unchanged, so `requirements_met` is not moved by either change.
+
+### 10.1 A5 now has the tool it names (answers T7, S9, P6)
+
+`tools/secret-scan.mjs` exists, and `tools/completion-gate.mjs` runs it as a
+check ("no credential reaches the repository tree ... A5"). It is pinned by
+`tests/secret-scan.test.ts` in both directions, because a scanner that misses a
+token and a scanner that flags `your-key-here` fail opposite ways:
+
+- caught: provider prefixes (`sk-`, `ghp_`, `github_pat_`, `AKIA`, `AIza`,
+  `xoxb-`, `sk_live_`), private-key blocks, JWTs, and a credential assigned to a
+  known variable name when the value is 20+ characters;
+- not caught: placeholder values (`<...>`, `your`, `changeme`, `example`), short
+  text, prose that names a prefix, the scanner's own pattern source, and this
+  project's `SENTINEL` redaction fixtures in `tests/ai/diagnostics*.test.ts`.
+
+The report names file, line and shape, never the matched value, so a gate report
+can be pasted into an issue without republishing the credential. Limit, stated:
+the scan reads the working tree, not git history. An already-committed key that
+was later deleted from the tree is a history question and is not covered here.
+
+### 10.2 The citation joint is narrower, and the semantic gap is still open
+
+Section 2's T3 and C1 said a clause is credited when a passing check's label
+*contains* the cited text, so the register cannot tell "a check named like this
+passed" from "this clause was measured". Two rules replace containment:
+
+1. the label must start with the citation, not merely contain it;
+2. the citation must resolve to exactly one check, so an ambiguous pointer is
+   reported as unproven instead of being credited to whichever label matched.
+
+Leading articles are normalized away: one citation reads "Fair Housing notice is
+mounted on the map surface" while the check's own label begins "the Fair Housing
+notice...". That is the same measurement; a mid-label phrase is not.
+
+The matcher is pinned by specimens rather than by prose. A new check asserts that
+it rejects `mounted on the map surface` (appears only mid-label in a passing
+check) and `Fair Housing notice` (starts four labels, so names no single check),
+and still resolves `production serves a build` to exactly one passing check. A
+future widening back to containment or first-match fails on the next run.
+
+**What this does not settle, stated plainly.** It measures that a citation names
+one check by its subject; it does not measure that the check *measures the
+clause*. P4 is unchanged and still reproducible: clause 14 ("a completion gate
+passed on evidence rather than assertion") is proven by the label `unit +
+security tests`, a step inside the gate, so the clause tracks the suite rather
+than whether any gate passed. P5 (clause 12's origin identity, blocked on A3) and
+T8 (clause 7's five prohibitions on two data-path checks) are likewise untouched.
+
+Closing P4 needs one of two owner decisions, and both are scoring moves, which is
+why this pass did not take either:
+
+- re-cite clause 14 to a check that measures the gate's own fail-closed decision,
+  or
+- add that check (for example, driving the gate's scoring function with a
+  synthetic failing result set and asserting a non-pass), then re-cite.
+
+Until then the honest reading is: citations are now specific and unambiguous,
+and at least one of them still does not measure its clause.
+
+### 10.3 Evidence for the addendum
+
+Measured on the head that carries these changes, keyless (`HOME` pointed at an
+empty directory so `readJevKey()` finds no off-repo file, per T9):
+
+```
+node --no-deprecation tools/completion-gate.mjs
+# deterministic 100/100, Overall: 100/100, GATE PASSED, exit 0
+# PASS  no credential reaches the repository tree (274 files scanned; A5)
+# PASS  every stated requirement is backed by exactly one check that passed in this run (14 requirements, 27 distinct checks cited)
+# PASS  the citation matcher rejects a phrase that appears only mid-label and one that names several checks
+npx vitest run tests/secret-scan.test.ts            # 9 passed
+node tools/emoji-scan.mjs .                         # 0 findings in 234 files
+node tools/mojibake-scan.mjs .                      # 0 findings in 270 files
+node tools/secret-scan.mjs .                        # 0 findings in 274 files
+```
+
+The deterministic count rose from 98 to 100 because two checks were added; no
+existing check was removed, renamed or weakened.

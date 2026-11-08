@@ -69,6 +69,7 @@ import { join } from 'node:path'
 import { createServer } from 'node:net'
 import { scanForEmoji } from './emoji-scan.mjs'
 import { scanForWeird } from './mojibake-scan.mjs'
+import { scanForSecrets } from './secret-scan.mjs'
 const ROOT = process.cwd()
 // Every child-process argument in this file is a literal, never user input, so
 // the shell concatenation DEP0190 warns about cannot be exploited here.
@@ -353,6 +354,24 @@ add(
   weirdScan.files > 50 && weirdScan.findings.length === 0,
   `no mojibake and no byte-order marks in any text file (${weirdScan.files} files scanned)`,
   weirdScan.findings.slice(0, 10).join(' | '),
+)
+
+// A5: no key from the portal environment reaches this repository.
+//
+// The assumption was recorded as "standing" while naming `tools/secret-scan.mjs`
+// as its method, and that file did not exist - so the claim was maintained by
+// review alone and nothing in the tree measured it. This wires the scanner that
+// A5 names into the gate that A5 cites, which is the difference between a
+// standing claim and a checked one. The scanner reports file, line and shape,
+// never the value, so this report can be pasted into an issue without
+// republishing the credential it caught. `tests/secret-scan.test.ts` pins both
+// directions: real token shapes are caught, and placeholders, prose and this
+// project's `SENTINEL` fixtures are not.
+const secretScan = scanForSecrets(ROOT)
+add(
+  secretScan.files > 50 && secretScan.findings.length === 0,
+  `no credential reaches the repository tree (${secretScan.files} files scanned; A5)`,
+  secretScan.findings.slice(0, 10).join(' | '),
 )
 
 // The key prompt must be reachable by a visitor who has no key.
@@ -1249,18 +1268,66 @@ const sweepClaimAgrees = (claim) => {
   return !/one request fetches all/.test(claim)
 }
 
+// How a clause's citation is resolved to the check that measured it.
+//
+// The original matcher was substring containment of the cited text in a check
+// label (`x.label.includes(c.proof)`), so a clause was credited whenever the
+// words appeared ANYWHERE in a passing label. That is label-keyed credit (C1 in
+// docs/gate-tree-completeness-2026-11-08.md): the record could not distinguish
+// "a check named like this passed" from "this clause was measured". Two rules
+// replace it, and both are asserted below against specimens rather than trusted:
+//
+//   1. The label must START with the citation, not merely contain it. A phrase
+//      that happens to appear mid-label describes the check's context, not its
+//      subject.
+//   2. The citation must resolve to exactly ONE check. A citation that names
+//      four labels identifies no measurement; it is an ambiguous pointer and is
+//      reported as unproven rather than credited to whichever check passed.
+//
+// Leading articles are normalized away because "the" is not a subject: one
+// citation reads "Fair Housing notice is mounted on the map surface" while the
+// check's own label begins "the Fair Housing notice...". That is the same
+// measurement, unlike a mid-label phrase.
+const normLabel = (s) => s.toLowerCase().replace(/\s+/g, ' ').trim().replace(/^the /, '')
+const resolveCitation = (proof, checks) =>
+  checks.filter((x) => normLabel(x.label).startsWith(normLabel(proof)))
+
 {
   const cited = REQUIREMENTS.flatMap((r) => r.proofs.map((p) => ({ req: r.req, proof: p })))
-  const unproven = cited.filter((c) => !results.some((x) => x.ok && x.label.includes(c.proof)))
+  const resolved = cited.map((c) => ({ ...c, hits: resolveCitation(c.proof, results) }))
+  const unproven = resolved.filter((c) => c.hits.length === 0 || !c.hits.every((x) => x.ok))
+  const ambiguous = resolved.filter((c) => c.hits.length > 1)
   const distinct = new Set(cited.map((c) => c.proof)).size
   add(
-    unproven.length === 0,
-    'every stated requirement is backed by a check that passed in this run (' +
+    unproven.length === 0 && ambiguous.length === 0,
+    'every stated requirement is backed by exactly one check that passed in this run (' +
       REQUIREMENTS.length +
       ' requirements, ' +
       distinct +
       ' distinct checks cited)',
-    unproven.map((c) => c.req + ' -> ' + c.proof).join('; '),
+    [
+      ...unproven.map((c) => c.req + ' -> ' + c.proof),
+      ...ambiguous.map((c) => 'ambiguous (' + c.hits.length + ' labels): ' + c.proof),
+    ].join('; '),
+  )
+
+  // The resolver's own teeth, planted rather than asserted in prose. Each
+  // specimen is a citation the old matcher would have credited:
+  //   - "mounted on the map surface" appears mid-label in a passing check, and
+  //     describes where it is mounted rather than what it proves;
+  //   - "Fair Housing notice" starts four labels, so it names no single check.
+  // The shipped citation must still resolve, and to exactly one check. If a
+  // future edit widens the matcher back to containment, or to first-match, this
+  // check fails on the next run instead of quietly restoring the old credit.
+  const midLabelSpecimen = 'mounted on the map surface'
+  const ambiguousSpecimen = 'Fair Housing notice'
+  const shippedSpecimen = 'production serves a build'
+  add(
+    resolveCitation(midLabelSpecimen, results).length === 0 &&
+      resolveCitation(ambiguousSpecimen, results).length > 1 &&
+      resolveCitation(shippedSpecimen, results).length === 1 &&
+      resolveCitation(shippedSpecimen, results)[0].ok,
+    'the citation matcher rejects a phrase that appears only mid-label and one that names several checks',
   )
 }
 
