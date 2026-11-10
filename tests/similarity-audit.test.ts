@@ -92,6 +92,10 @@ export function validateScreen(raw: unknown): Screen {
   const county = new Map<string, string>()
   const state = new Map<string, string>()
   const out: AreaRow[] = []
+  // A row count is not a ZIP set. One duplicated ZIP and one missing ZIP keep the count at
+  // 33,791 while quietly moving every distance measured against the missing area, which is
+  // the same count-instead-of-set defect the gate's sitemap check has (#78).
+  const seen = new Set<string>()
   for (const row of rows as Record<string, unknown>[]) {
     for (const key of Object.keys(row)) {
       if (!allowed.has(key)) throw new Error(`national screen: unexpected field "${key}" - values only`)
@@ -100,6 +104,8 @@ export function validateScreen(raw: unknown): Screen {
     if (typeof zcta !== 'string' || !/^\d{5}$/.test(zcta)) {
       throw new Error(`national screen: bad ZIP code ${String(zcta)}`)
     }
+    if (seen.has(zcta)) throw new Error(`national screen: duplicate ZIP code ${zcta}`)
+    seen.add(zcta)
     const metrics: Record<string, number | null> = {}
     for (const metric of SIMILARITY_METRICS) {
       const v = row[metric]
@@ -277,6 +283,12 @@ describe('Champion Audit #69: the loader refuses a corpus that is not values-onl
 
   it('refuses a short corpus, because a short index is a bug rather than a smaller country', () => {
     expect(() => validateScreen(full((rows) => rows.pop()))).toThrow(/33790 rows, expected 33791/)
+  })
+
+  it('refuses a duplicate ZIP, because a count of rows is not a set of areas', () => {
+    expect(() =>
+      validateScreen(full((rows) => Object.assign(rows[1], { zcta: rows[0].zcta }))),
+    ).toThrow(/duplicate ZIP code/)
   })
 
   it('refuses a field beyond the four values, so names and keys cannot ride along', () => {
