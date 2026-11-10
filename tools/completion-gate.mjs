@@ -70,6 +70,7 @@ import { createServer } from 'node:net'
 import { scanForEmoji } from './emoji-scan.mjs'
 import { scanForWeird } from './mojibake-scan.mjs'
 import { scanForSecrets } from './secret-scan.mjs'
+import { decideGate } from './gate-score.mjs'
 const ROOT = process.cwd()
 // Every child-process argument in this file is a literal, never user input, so
 // the shell concatenation DEP0190 warns about cannot be exploited here.
@@ -1293,6 +1294,62 @@ const resolveCitation = (proof, checks) =>
   checks.filter((x) => normLabel(x.label).startsWith(normLabel(proof)))
 
 /*
+ * The instrument's own fail-closed decision, driven with synthetic inputs.
+ *
+ * This is the one check that measures the gate rather than the product, and it
+ * exists because the decision used to be unmeasured: clause 14 asks whether "a
+ * completion gate passed on evidence rather than assertion", and the check cited
+ * for it was `unit + security tests`, which measures the suite running rather
+ * than whether a failing run reads as failing (P4 in
+ * docs/gate-tree-completeness-2026-11-08.md section 10.4).
+ *
+ * Each specimen is a decision this instrument actually got wrong on 2026-11-10:
+ * a keyless run reporting 100/100 for a criterion it never measured, and a
+ * failing deterministic layer reporting 98.9 instead of the 99.6 it measured.
+ * The threshold here is the shipped one - these specimens are not a re-scoring,
+ * they are the same rule applied to inputs whose answer is known by hand.
+ *
+ * Cited: clause 14's citation is NOT changed by this. Re-citing it is a scored
+ * register move and stays the owner's decision; this check makes the evidence
+ * available without taking it.
+ */
+{
+  const T = THRESHOLD
+  const pass = (label) => ({ ok: true, label })
+  const bad = (label) => ({ ok: false, label })
+  const allPassing = [pass('one'), pass('two')]
+  const oneFailing = [pass('one'), bad('two')]
+
+  const failing = decideGate({ deterministic: oneFailing, jev: { score: 99.6 }, threshold: T })
+  const healthy = decideGate({ deterministic: allPassing, jev: { score: 99.6 }, threshold: T })
+  const keyless = decideGate({ deterministic: allPassing, jev: null, threshold: T })
+  const errored = decideGate({ deterministic: allPassing, jev: { error: 'boom' }, threshold: T })
+  const unscored = decideGate({ deterministic: allPassing, jev: {}, threshold: T })
+  const empty = decideGate({ deterministic: [], jev: { score: 100 }, threshold: T })
+  const below = decideGate({ deterministic: allPassing, jev: { score: 98.9 }, threshold: T })
+  const exactly = decideGate({ deterministic: allPassing, jev: { score: 99 }, threshold: T })
+
+  add(
+    failing.passed === false &&
+      failing.overall === 99.6 &&
+      healthy.passed === true &&
+      keyless.passed === true &&
+      keyless.overall === null &&
+      keyless.semantic === 'skipped' &&
+      errored.passed === false &&
+      errored.overall === null &&
+      unscored.passed === false &&
+      unscored.overall === null &&
+      empty.passed === false &&
+      below.passed === false &&
+      exactly.passed === true,
+    "the gate's own decision reads a failing result set as failing, an unmeasured criterion as unmeasured, and the " +
+      `${T} boundary exactly`,
+    JSON.stringify({ failing, keyless, errored, unscored, empty, below, exactly }),
+  )
+}
+
+/*
  * The per-clause resolution is emitted into the report, not only aggregated.
  *
  * This block used to collapse all 14 clauses into one check row, so a clause
@@ -1762,21 +1819,59 @@ console.log(
     `\n            tree completeness is not measured by this gate.${c.x}`,
 )
 
-const overall =
-  jev === null ? (detOk ? 100 : 0) : detOk && jev.score >= THRESHOLD ? jev.score : Math.min(jev.score ?? 0, 98.9)
+/*
+ * The final decision is made by tools/gate-score.mjs, not by an expression here.
+ *
+ * Written inline, the decision reported two numbers nobody measured: a keyless
+ * run printed `Overall: 100/100` and "GATE PASSED" for a run in which the
+ * 99-threshold criterion never ran (every CI run is keyless), and a failing
+ * deterministic layer printed 98.9 instead of the score it had measured. Both
+ * were found by calling that expression with synthetic inputs, which is now a
+ * unit test and a self-check below rather than a reading.
+ */
+const decision = decideGate({ deterministic: results, jev, threshold: THRESHOLD })
+const overall = decision.overall
 
 writeFileSync(
   OUT,
   JSON.stringify(
-    { threshold: THRESHOLD, register: REGISTER, clauses: CLAUSE_RECORDS, deterministic: results, jev, overall },
+    {
+      threshold: THRESHOLD,
+      register: REGISTER,
+      clauses: CLAUSE_RECORDS,
+      deterministic: results,
+      jev,
+      overall,
+      decision,
+    },
     null,
     2,
   ),
 )
-console.log(`\n${c.b}Overall: ${overall}/100${c.x}  ${c.d}(report: ${OUT})${c.x}`)
 
-const passed = detOk && (jev === null || jev.score >= THRESHOLD)
-console.log(passed ? `${c.g}GATE PASSED${c.x}` : `${c.r}GATE FAILED${c.x}`)
+const criteriaLine = {
+  measured: `semantic criterion (${THRESHOLD}): ${decision.thresholdMet ? 'MET' : 'NOT MET'}`,
+  skipped: `semantic criterion (${THRESHOLD}): NOT MEASURED`,
+  error: `semantic criterion (${THRESHOLD}): NOT MEASURED (the layer failed)`,
+}[decision.semantic]
+console.log(
+  overall === null
+    ? `\n${c.b}Overall: not measured${c.x}  ${c.d}(${criteriaLine}; report: ${OUT})${c.x}`
+    : `\n${c.b}Overall: ${overall}/100${c.x}  ${c.d}(${criteriaLine}; report: ${OUT})${c.x}`,
+)
+
+const passed = decision.passed
+if (passed && decision.semantic === 'skipped') {
+  // A pass on the deterministic layer alone is a real result and a limited one.
+  // Saying so is the difference between "the checks that ran, passed" and a
+  // perfect score nobody measured.
+  console.log(
+    `${c.g}GATE PASSED${c.x} ${c.y}(deterministic layer only: the ${THRESHOLD}-threshold semantic criterion was not measured)${c.x}`,
+  )
+} else {
+  console.log(passed ? `${c.g}GATE PASSED${c.x}` : `${c.r}GATE FAILED${c.x}`)
+  if (!passed) console.log(`  ${c.d}${decision.reason}${c.x}`)
+}
 
 /*
  * Exit only once the report has actually left this process.
