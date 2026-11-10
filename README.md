@@ -1,8 +1,10 @@
 # CivicScope
 
-Free, auditable US housing and neighbourhood data. Fetches directly from the
-publishers in your browser — no server, no database, no accounts, no ads, no
-analytics.
+Free, auditable US housing and neighbourhood data. Housing figures are fetched
+directly from the publishers in your browser — no database, no accounts, no ads,
+no analytics, and no record of what you look up. The one server-side component is
+the optional Muse AI proxy, which exists so a shared model key never reaches the
+browser; it holds counters, not queries (see "The Muse layer" below).
 
 ## What this is
 
@@ -276,9 +278,10 @@ npm run test:live    # live API contract checks (hits the network)
 
 ## Deploying
 
-The app is a static site with no backend, so the Cloudflare Pages free tier
-covers it indefinitely — no server cost, no Workers, no spend cap to worry
-about.
+The app is a static site plus Pages Functions for the optional Muse proxy, so the
+Cloudflare Pages free tier covers it indefinitely — no server cost, no Workers,
+no spend cap to worry about. Housing data never passes through those functions;
+they only relay model requests whose shared key stays server-side.
 
 ```bash
 npm run cf:login     # one-time browser auth
