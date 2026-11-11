@@ -23,6 +23,9 @@ Comparators: cutoff 0.05 and 0.15 on identical weights.
 `computeRanges`, `comparisonDims`, `distance` - not through a reimplementation, so a
 change to the champion's arithmetic changes the numbers this file prints.
 
+**Artefact builder.** `tools/gen-national-screen.mjs` - values only, set-checked
+against the committed index, and it refuses to write rather than fabricating a row.
+
 **Ground truth, and why it is the county.** The issue says CBSA membership. This
 repository carries no ZCTA-to-CBSA file, and writing one by hand is the fabrication
 the audit exists to prevent. It does carry `public/map/zcta-counties.json` - the
@@ -37,9 +40,9 @@ here. That direction matters and is stated rather than glossed: same-county admi
 pairs understate same-metro admitted pairs, so a challenger that passes on this ground
 truth would pass on the CBSA one, and one that fails here might still pass there.
 
-## The national measurement: NOT MEASURED, and why that is the honest state
+## The national measurement: MEASURED on the committed corpus (2026-11-11)
 
-The measurement needs one committed sweep output:
+The unblocking artefact is now in the repository:
 
 ```
 tests/fixtures/national-screen.json
@@ -49,16 +52,39 @@ tests/fixtures/national-screen.json
   no names, no keys, no extra fields
 ```
 
-That file is not in the repository, and producing it needs a live Census key, which
-this lane does not hold (key fence). So the national test is `describe.skip` - reported
-by vitest as **skipped, not passed** - and a second test prints `NOT MEASURED` with the
-required shape and fails if a corpus is committed in the wrong shape. The loader
-validates all of it: exactly 33,791 rows, only the five allowed fields, finite numbers
-or explicit nulls, five-digit ZIP codes joined against the county index.
+Built by `tools/gen-national-screen.mjs` from the Census Bureau's ACS 5-year 2023
+estimates, through the same variable ids `src/core/plugins/acs.ts` ships, in 800-ZIP
+requests (the ceiling measured in `sweep/chunk.ts`), with sentinels parsed to null.
+19 of the 33,791 ZCTAs carry explicit nulls because the publisher has no estimate for
+them (the Virgin Islands 008xx codes, 11717/11798, and the Pacific territories
+96799-96952); they are nulls rather than dropped rows, so the file's ZIP set equals the
+committed index exactly - the loader refuses anything else. The two-row-in-one-file
+history of hand-rolled decoders is why that check is a set comparison.
 
-This is the one place in this program where the unblocking artefact is a data file
-rather than a constant, and it is worth saying plainly: no amount of arithmetic in the
-harness substitutes for it.
+### The readings
+
+220 origins, deterministic stride, equal weights, both scopes. Champion is cutoff
+0.1; the numbers are the challengers against it:
+
+| Challenger | National scope | State scope | Ships |
+| --- | --- | --- | --- |
+| 0.05 | cross-CBSA-class pairs fall **72.0%**, same-loss **69.1%** | fall 73.7%, same-loss 74.8% | no |
+| 0.15 | fall **-72.6%** (admits more), same-loss -58.3% | fall -78.7%, same-loss -74.0% | no |
+
+(The cross-group fall exceeds the clause's 50% requirement for 0.05, but the same-group
+loss is 69.1%, against a ceiling of 10% - the tighter cutoff buys the cross-group
+reduction by discarding twice as many genuinely similar pairs. 0.15 moves the opposite
+way by construction: loosening a cutoff admits a superset.)
+
+**Verdict: no change. Cutoff 0.1 remains the champion**, and that is the complete,
+successful close this program allows - the measurement published, the champion kept,
+with the evidence attached. The state scope does not rescue the challenger in either
+direction.
+
+Ground truth remains the county, as stated above: a stricter grouping than the CBSA,
+so same-group admitted pairs understate same-metro admitted pairs and a challenger that
+fails here could still pass on a CBSA ground truth. That direction is unchanged by
+these readings and is not hidden by the verdict.
 
 ## What was measured instead: the frontier under a declared model
 
