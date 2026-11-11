@@ -53,6 +53,25 @@ measured once, 2026-11-03, at 96.7% (88/91) exact and 7/7 safety, from
 the union tree's preview portal deployment; surface, model and misses are in
 [the eval record](docs/muse-layer-eval.md). Not re-run in this repository. Voice input is not part of this submission.
 
+### How the layer runs
+
+The layer is served by five Pages Functions under `functions/api/muse/`: `intent`,
+`explain`, `briefing`, `diagnostics`, and an inert `transcribe` shell with no
+caller. They exist so the shared model key stays server-side and never reaches
+the browser. Each route validates a closed shape before it forwards anything -
+structured slots for intent, and the displayed figure set (re-checked against its
+SourceRefs before the call) for explain and briefing - then meter-gates the call
+and validator-gates the prose that comes back.
+
+The meter is an in-memory aggregate: request, token, spend and error-class
+totals, plus per-client spend under an opaque browser-generated id. It holds no
+query text, no IP, no key and no content, and it lives in one isolate, so
+totals reset on a cold start - `/api/muse/diagnostics` reports
+`meterPersistence: "isolate"` rather than implying durable storage. When the
+configured budget is spent, further shared-allowance calls answer 429 instead of
+spending. A visitor may instead use their own Meta key, which stays in their
+browser and is sent only to `api.meta.ai`.
+
 Privacy for the Muse layer is in [docs/privacy.md](docs/privacy.md).
 
 ## Data sources

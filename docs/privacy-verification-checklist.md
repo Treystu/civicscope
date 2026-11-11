@@ -1,8 +1,14 @@
 # Privacy text verification checklist
 
-Date of this pass: 2026-11-07. Issue: #63. Plan criterion: 6.2.1, "shipped
+Date of this pass: 2026-11-07, re-read 2026-11-11 against the route set and the
+meter as they ship. Issue: #63. Plan criterion: 6.2.1, "shipped
 privacy text verified line-by-line against the shipped proxy deployment config as
 a gate checklist item".
+
+The 2026-11-11 re-read found one omission in the text and two missing rows here:
+the text named `/api/muse/intent` and `/api/muse/explain` while a third live
+route, `/api/muse/briefing`, is reached by the browser through
+`src/core/ai/meta-client.ts`. Both are now recorded.
 
 **Text under check:** [docs/privacy.md](privacy.md). The earlier pass checked
 [docs/privacy-workbench.md](privacy-workbench.md), which is the superseded
@@ -20,7 +26,7 @@ recorded is the evidence a sign-off would need.
 
 | Item | Observed | How |
 | --- | --- | --- |
-| Server-side routes | `functions/api/muse/{intent,explain,transcribe,diagnostics}.ts` | repository |
+| Server-side routes | `functions/api/muse/{intent,explain,briefing,transcribe,diagnostics}.ts` | repository |
 | Storage bindings | None declared. No `wrangler.toml` / `wrangler.jsonc`; Pages Functions are built from `functions/` | repository |
 | Durable Object / D1 / R2 / KV use | None in `functions/`, `src/server/`, or `src/core/ai/` | `grep` over those trees |
 | Meter implementation | `Meter` class with per-instance Maps for totals, error counts, per-client spend, reservations | `src/core/ai/meter.ts` |
@@ -42,7 +48,7 @@ recorded is the evidence a sign-off would need.
 | 3 | "never stores searches, keys, query text, IP addresses, or content. No per-search or per-person record" | The meter stores no content; the proxy does not log bodies; no storage binding exists. Per-client spend is keyed by an opaque client id, not a person | PASS |
 | 4 | "A hard budget shutoff is kept" | `reserve()` returns null when committed spend plus outstanding reservations would exceed the cap; the route answers 429 `budget_exhausted` | PASS |
 | 5 | "Any per-client cap is configured at the meter; this text states no cap value" | `perClientCapMicroUsd` is optional and unset; the diagnostics surface reports only whether one is configured | PASS |
-| 6 | "Ask and Explain reach the model through this site's own endpoints (intent and explain)" | Both routes exist and are the shipped path; the transcribe route is no longer listed, because it ships inert | PASS |
+| 6 | "Ask, Explain and the figure-set briefing reach the model through this site's own endpoints (intent, explain, briefing)" | All three routes exist and are the shipped path - `briefing` is called from `src/core/ai/meta-client.ts` and sends the displayed figure set, not question text. The transcribe route is not listed, because it ships inert | PASS |
 | 7 | "Wherever the feature allows, the browser sends structured slots ... Where a feature cannot work from slots alone, raw query text is sent, and that limit is shown" | Explain sends the displayed figure set only; Ask sends `queryText` and renders `RAW_TEXT_DISCLOSURE` above the input | PASS |
 | 8 | "A standing disclosure accompanies model wording" | `DISCLOSURE_TEXT` renders in `AskPanel` and `ExplainBox` | PASS |
 | 9 | "Filter keys are limited to an allowlist in code ... wording that does not pass is withheld rather than shown" | Sortable/filter allowlist plus the validator that withholds non-conforming prose | PASS |
@@ -50,6 +56,8 @@ recorded is the evidence a sign-off would need.
 | 11 | "The diagnostics panel keeps counters ... stored in the visitor's browser only. Its export ... structurally unable to carry a query or a key" | `DiagnosticsPanel` is mounted on the Methodology view; counters are local; the export is rebuilt from validated counters | PASS |
 | 12 | "There is no tracking, no analytics, and no search logging" | No analytics dependency or script; no request-body logging; diagnostics counts are local and exported only by the visitor | PASS |
 | 13 | "Voice input is not part of this build" | Inert route, no UI, microphone permission policy closed | PASS |
+| 14 | "A per-client total is kept in memory under an opaque id the browser generates ... does not survive a cold start" | `Meter.perClientSpent` is keyed by the request's opaque client id and is an in-isolate Map; `meterPersistence: "isolate"` reports the reset. The id is not derived from an IP or a cookie | PASS |
+| 15 | "The briefing sends the figure set already on screen, re-checked against its sources before the call, never the question text" | `handleBriefing` accepts `figureSetId` and a `values[]` allowlisted to `key`/`value`/`marginOfError`; a `queryText` field is rejected by the shape check | PASS |
 
 ## What remains before this text is final
 

@@ -1,7 +1,14 @@
 # Submission readiness checklist (Pass 3)
 
-Date: 2026-11-07. Lane head at the time of writing: `0b73a31` on
-`lane/submission`. Issue: #64. Plan: `docs/full-muse-layer-plan.md` section 8.
+Date: 2026-11-07, rows re-read 2026-11-11. Lane head at the time of writing:
+`0b73a31`, re-read at `915fcf8`. Issue: #64. Plan:
+`docs/full-muse-layer-plan.md` section 8.
+
+The 2026-11-11 re-read changed two rows and no others. Row 9 was quoting a
+semantic reading from an older head with no keyed run on the current one, and row
+16's count was checked again rather than repeated. Rows 10-13 and 8 stay where
+they were: they are owner acts or depend on one, and re-reading them does not move
+them.
 
 Every row below is either evidenced by an artefact in this repository or marked
 **NOT RUN** / **NOT DONE** with the reason. The plan's honesty rule binds this
@@ -38,14 +45,14 @@ not run is reported as not run.
 | 6 | Privacy text verified against shipped config | **PARTIAL** | Code-side verification done (13 claims); the deployed-config half needs the layer on production, and sign-off is owner-reserved |
 | 7 | Agent onboarding artefact, handoff and abort test | **DONE** | Workflow v1.0.0, mounted handoff, 14 passing cases |
 | 8 | Independent clean-account onboarding run | **NOT RUN** | Requires a human non-author with a real mailbox; packet filed on #59 |
-| 9 | Completion gate green (verify + live-contracts + gate) | **NOT MET** | Every deterministic check passes and all four steps run; at head `95887b0` the semantic score is **78.6** against the unchanged 99 threshold, from the 14/14 clause aggregate `requirements_met` 0.882 (`npm run gate`, 2026-11-10). The gate therefore reports FAILED and no full-gate pass exists at this head. Earlier rows quoted 78.9 (`efcff9d`) and 79.1; both were prior heads. Reported as not met, never rounded up |
+| 9 | Completion gate green (verify + live-contracts + gate) | **NOT MET** | The deterministic layer passes in full and the settled count is 101/101. The semantic layer needs the keyed CI run, and no keyed run exists on `915fcf8` or on `906ac8b`; the last named readings are job 158 at `b3c8049` (overall **77.7**, `requirements_met` 0.891, overclaiming 0.56) and job 156 at `e722d2b` (**78.6**). Sampled readings move a couple of points, so none of these is a measurement of the current head and none is quoted as one. Above the 99 threshold either way, so the gate reports FAILED: reported as not met, never rounded up |
 | 10 | House layer deployed to production | **NOT DONE** | Production tracks `main` without the layer; the merge path is owner-reserved. `docs/submission-path-deploy.md` records the preview that proves the wiring |
 | 11 | Demo video filmed against the production build | **NOT RUN** | Cannot be filmed before row 10; owner-side |
 | 12 | Recorded fallback from the same commit as the live site | **NOT RUN** | Requires row 10; owner-side. Commit hash must be stated in the submission when captured |
 | 13 | Portal submission text drafted from shipped behaviour | **NOT DRAFTED** | Blocked on two owner inputs: the live URL the text must point at (row 10), and the Explain claimed-vs-stretch split, which this package must not settle silently |
 | 14 | Judging-evidence pack assembled from real artefacts | **DONE** (as an index) | The artefact table above is the pack's index; each entry names its path and state |
 | 15 | Impact evidence (consented testimonials, task records) | **NOT RUN** | Requires real users; no analytics or tracking collects it by design, so it is recruited and recorded by hand, owner-side |
-| 16 | Branch hygiene | **DONE** (measured) | Eight `archive/20261021/*` refs exist and `git cherry origin/main` reports zero commits not already in main on all of them; deleting the refs is parked on #31 |
+| 16 | Branch hygiene | **DONE** (measured) | Eight `archive/20261021/*` refs exist on `origin` and `git cherry origin/main` reports zero commits not already in main on all of them; deleting the refs is parked on #31 as a destructive owner act |
 | 17 | Standing owner call preserved, not settled | **DONE** | Rows 13 and 8 leave the Explain claim split and the onboarding run explicitly open |
 
 ## What must be true before this package can be submitted
