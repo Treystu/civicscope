@@ -183,7 +183,18 @@ export async function getJson<T>(url: string, opts: GetJsonOptions): Promise<T> 
     if (!res.ok) {
       throw new SourceUnavailableError(`Request failed (${res.status})`, url, res.status)
     }
-    const body = (await res.json()) as T
+    // A 200 carrying an HTML error page is a source failure, not a parse crash.
+    // Census and TIGERweb both answer HTTP 200 with an error page when a
+    // parameter or key is wrong (measured 2026-11-11: the ACS endpoint answered
+    // 302/HTML to a keyless query), and an uncaught SyntaxError here surfaced as
+    // an application bug rather than as the publisher being unavailable.
+    const text = await res.text()
+    let body: T
+    try {
+      body = JSON.parse(text) as T
+    } catch {
+      throw new SourceUnavailableError(`Response was not JSON (HTTP ${res.status})`, url, res.status)
+    }
     if (opts.cache !== false) await writeCache(url, body)
     return body
   })()

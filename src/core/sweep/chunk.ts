@@ -79,7 +79,14 @@ const ZCTA_WINDOWS: [string, string][] = [
  * because the list only changes when Census publishes a new ZCTA layer, which
  * is at most annually.
  */
-export const ENUM_CACHE_KEY = 'civicscope://zcta-enumeration/v1'
+/**
+ * `tiger2020` is the layer the list was enumerated from. Champion Audit #77's F2
+ * found the key carried no data vintage, so a stored list survived a layer change
+ * for its whole ninety-day life while the sweep partitioned on codes that no
+ * longer matched. A new layer needs a new token here, and that deploy invalidates
+ * the stored copy.
+ */
+export const ENUM_CACHE_KEY = 'civicscope://zcta-enumeration/v2-tiger2020'
 
 /**
  * Enumeration freshness: ninety days.

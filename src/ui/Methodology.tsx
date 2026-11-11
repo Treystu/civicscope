@@ -194,8 +194,9 @@ export function Methodology() {
                     {p.legal.notice && <p className="mt-1 text-xs italic text-slate-600">{p.legal.notice}</p>}
                     {p.legal.suppressBelow !== undefined && (
                       <p className="mt-1 text-xs text-slate-600">
-                        Figures below {p.legal.suppressBelow} in a count unit are withheld to protect
-                        small-population privacy.
+                        Figures below {p.legal.suppressBelow} in a count unit are withheld because a
+                        median over that few people is dominated by one household, and a count that small
+                        can identify them.
                       </p>
                     )}
                     {p.legal.protectedClassProxy && (
