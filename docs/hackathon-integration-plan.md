@@ -93,9 +93,11 @@ files a steering request rather than widening.
   slice most likely to raise the gate's semantic score honestly, because it adds
   capability the evidence record can point at.
 - **S4 — Grounding (I7, with the I10 modules it needs).** Provider-optional.
-- **S5 — Durability (I8).** Blocked on the deployment-shape decision; see A4.
+  Gated on decisions D1 and D5; see section 7.
+- **S5 — Durability (I8).** Blocked on the deployment-shape decision; see A4 and
+  section 7.
 - **S6 — Conversational lanes (I9, remaining I10).** Last because it depends on
-  everything above.
+  everything above. Gated on decisions D1 and D5; see section 7.
 
 ## 5. Assumption register
 
@@ -126,3 +128,48 @@ comparison at `da989b0`, not a behavioural review of each module. The gate's red
 last measured before the instrument repair was semantic 62.8/100 against a
 threshold of 99 (CircleCI pipeline 6); the repair commit scores the fourteen
 clause verdicts instead of one holistic answer and is tracked on the PR.
+
+## 7. Gate register - what each unstarted slice waits on (2026-11-11)
+
+Oversight's 2026-11-10 settlement (tracker #67, comment `c.6784734241`) is the
+ordering record this section makes readable from the repo. Integration proceeds
+inventory-and-plan first, with an oversight conformance read before any slice;
+no key migrates; production stays untouched until slices land on `main`.
+
+The three gates were previously recorded only in off-repo notes. They are:
+
+| Gate | Question it settles | Effect |
+| --- | --- | --- |
+| **D1** | Key architecture: proxy, BYO-only, or hybrid | blocks S4 and S6 until ruled; the shipped code follows the plan default (hybrid) |
+| **D5** | What a user's query may reveal to Meta, and whether aggregate operator counters stand | blocks S4 and S6 until ruled; the shipped disclosure appears before the input and the privacy text is still a draft |
+| **A4** | Whether durable-object metering is approved as a deployment-shape change | blocks S5 |
+
+D1 and D5 are owner calls by the plan's own terms (`docs/full-muse-layer-plan.md`
+section 9), and no ruling is recorded in this repository. A4 is the owner's
+approval of a deployment-shape change and is open in section 5. A slice is not
+started, scoped or sequenced until its gate is settled; the gates above are the
+reason S4-S6 wait, and the absence of a ruling is stated rather than filled with
+a lane guess.
+
+| Slice | Contents | State at `b3c8049` | Waits on |
+| --- | --- | --- | --- |
+| S1 | I1, I2 | landed (modules, tests, regenerated index) | none |
+| S2 | I3, I12 | landed (result map, four browser cases) | none |
+| S3 | I4, I5, I6 | landed as modules; no call site yet | none |
+| S4 | I7 + the I10 modules it needs | **not started** | D1, D5 |
+| S5 | I8 | **not started** | A4 |
+| S6 | I9 + remaining I10 | **not started** | D1, D5 |
+
+"Not started" is measured, not asserted. At `b3c8049` every file the inventory
+names for S4, S5 and S6 is absent from the tree: `src/core/ai/jev-loop.ts`,
+`src/core/ai/jev-judgments.ts`, `src/server/jev-client.ts`,
+`functions/api/muse/jev.ts`, `src/core/ai/meter-persistence.ts`,
+`functions/api/muse/meter-do.ts`, `src/core/ai/general.ts`,
+`src/core/ai/flexible.ts`, `src/core/ai/geography-gate.ts` (file-presence read,
+2026-11-11). There is also no `wrangler.toml` or `wrangler.jsonc` in the tree,
+which is the deployment-shape surface A4 asks the owner to rule on.
+
+Downstream, S7-S12 in `docs/full-muse-layer-plan.md` section 7 all sit behind
+S4-S6, so this register gates the submission path as a whole and not only three
+slices. It records ordering; it does not start work, move a key, or touch
+production.
