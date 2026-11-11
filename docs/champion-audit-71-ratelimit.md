@@ -67,3 +67,25 @@ this session and the item stays open with this record as its measurement.
    drilldowns.
 
 Both numbers are cheap to take and neither is available offline.
+
+## The bounded live window, run 2026-11-11 (`tools/measure-pacing-window.mjs`)
+
+The offline measurement met the margin; the issue required a live window before the
+challenger shipped. Both configurations were run over 43 live requests each, against
+the real Census endpoint, using the local key through `load-census-key.mjs` (never
+printed), with no retry loop - a 503 would be the reading.
+
+| Configuration | 43 live requests | 503s |
+| --- | --- | --- |
+| champion 400 ms / 2 concurrent | 18.3 s | 0 |
+| challenger 250 ms / 3 concurrent | 11.6 s | 0 |
+
+Bar: zero additional 503s. Result: **0 additional 503s, 36.5% faster**. Under the
+program rule a challenger that meets its pre-stated margin ships, so the shipped
+defaults are now 250 ms / 3 concurrent (`src/core/ratelimit.ts`), with the pinned
+default assertion updated to match.
+
+Criterion 2 (budget-prediction error at or below 5% for a mixed session) is **NOT
+MEASURED** here: it needs a session mixing sweeps and drilldowns in the app, which
+this tool does not drive. It is not claimed, and the budget accounting itself is
+unchanged by this ship.

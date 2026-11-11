@@ -20,8 +20,11 @@
  * Backoff is handled in `http.ts`; this file owns pacing and budget.
  */
 
-const MIN_INTERVAL_MS = 400
-const MAX_CONCURRENCY = 2
+// Champion Audit #71 shipped these: the challenger met its margin offline
+// (21.0s vs 30.8s) and cleared the bounded live window on 2026-11-11 - 43 live
+// requests at 250ms/3 had zero 503s and finished 36.5% faster (11.6s vs 18.3s).
+const MIN_INTERVAL_MS = 250
+const MAX_CONCURRENCY = 3
 const DEFAULT_DAILY_BUDGET = 450
 
 export interface RateLimitConfig {

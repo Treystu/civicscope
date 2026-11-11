@@ -41,8 +41,8 @@ function makespan(n: number, minIntervalMs: number, maxConcurrency: number, late
 describe('champion audit #71: pacing and budget', () => {
   it('replays the shipped constants', () => {
     const cfg = getRateLimit()
-    expect(cfg.minIntervalMs).toBe(400)
-    expect(cfg.maxConcurrency).toBe(2)
+    expect(cfg.minIntervalMs).toBe(250)
+    expect(cfg.maxConcurrency).toBe(3)
     expect(cfg.dailyBudget).toBe(450)
     expect(REQUESTS).toBe(43)
   })
