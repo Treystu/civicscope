@@ -1,5 +1,26 @@
 # CivicScope — Jev roadmap
 
+> **Register of record, dated 2026-11-11 (supersession note).** This file remains
+> the status register for the phases it names, but no row in it is current as of
+> today. Three records govern instead, and this note says which is which so a
+> reader does not mistake a stale row for live state:
+>
+> 1. **Champion-program work (#67-#80):** tracker issue #67 is the register of
+>    record. No phase rows for that program are added here without evidence, and
+>    the program's measurements live in `docs/champion-audit-*.md`.
+> 2. **Integration and slice ordering:** `docs/hackathon-integration-plan.md`
+>    section 7 and `docs/s-slice-plan.md` - the latter is the gate order for
+>    S4/S5/S6 (D1+D5 block S4 and S6; A4 blocks S5).
+> 3. **Rows in this file:** citation only, and only after the row is re-measured
+>    on the current head. `AGENTS.md` section 3 forbids writing a status row for
+>    work that has not been measured, so a refresh of these rows is a measured
+>    pass and has not been done.
+>
+> The earlier claim in this header block that the domain row rests on "a
+> client-side tool with no server" was cured at `b3c8049`; the live product has a
+> serverless data path and one optional server-side component (the Muse proxy
+> under `functions/api/muse/`). This note records supersession, not a rewrite.
+
 This roadmap exists to satisfy the JEV-COMPLETION contract in
 `packs/phase_completion.pack.json`. Each phase is a row; **residual or deferred
 work is its own row**, never folded into a complete claim. The

@@ -131,6 +131,11 @@ clause verdicts instead of one holistic answer and is tracked on the PR.
 
 ## 7. Gate register - what each unstarted slice waits on (2026-11-11)
 
+**The enforceable ordering document is [`docs/s-slice-plan.md`](s-slice-plan.md).**
+It carries the same three gates and states each slice's acceptance in observable
+terms, so a slice brief can cite a check rather than a conversation. This section
+is the register beside the inventory; that file is the one a brief must cite.
+
 Oversight's 2026-11-10 settlement (tracker #67, comment `c.6784734241`) is the
 ordering record this section makes readable from the repo. Integration proceeds
 inventory-and-plan first, with an oversight conformance read before any slice;
