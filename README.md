@@ -279,7 +279,7 @@ npm run test:live    # live API contract checks (hits the network)
 ## Deploying
 
 The app is a static site plus Pages Functions for the optional Muse proxy, so the
-Cloudflare Pages free tier covers it indefinitely — no server cost, no Workers,
+Cloudflare Pages free tier covers it indefinitely — no server cost, no database,
 no spend cap to worry about. Housing data never passes through those functions;
 they only relay model requests whose shared key stays server-side.
 
