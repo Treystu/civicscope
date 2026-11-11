@@ -23,7 +23,23 @@
  * The artefact is dictionary-packed: each record is a 4-digit county dictionary
  * id and a 3-digit land share, and the ZIP list is delta-encoded. Measured, the
  * unpacked alternative is roughly three times the bytes for the same data.
+ *
+ * The decoder itself lives in `tools/zcta-index.mjs` and is imported here rather
+ * than reimplemented. The completion gate is plain `.mjs` and cannot import this
+ * module, so one shared implementation is the only way the app, the gate and the
+ * tests can decode the same bytes the same way - two hand-rolled decoders in this
+ * repository each got the packing wrong (issue #78).
  */
+
+import {
+  RECORD_WIDTH,
+  EXPECTED_ZCTAS,
+  unpackCountyIndex,
+  type CountyIndexRecord,
+  type PackedCountyIndex,
+} from '../../tools/zcta-index.mjs'
+
+export { RECORD_WIDTH, type CountyIndexRecord, type PackedCountyIndex }
 
 /** Served from `/map/`, which is cached immutably for a year. */
 export const ZCTA_COUNTIES_URL = '/map/zcta-counties.json'
@@ -32,118 +48,11 @@ export const ZCTA_COUNTIES_URL = '/map/zcta-counties.json'
  * Every ZCTA in the country. A short index is a bug in the artefact, not a
  * smaller dataset, so it is asserted rather than accepted.
  */
-export const EXPECTED_COUNTY_INDEX_ZCTAS = 33791
+export const EXPECTED_COUNTY_INDEX_ZCTAS = EXPECTED_ZCTAS
 
-/** 4 characters of county id plus 3 of land share. */
-export const RECORD_WIDTH = 7
-
-/** A ZIP code resolved to the county holding most of its land. */
-export interface CountyIndexRecord {
-  zip: string
-  /** Five-digit county FIPS: two state digits then three county digits. */
-  countyGeoid: string
-  /** `NAMELSAD_COUNTY_20` verbatim, e.g. `Los Angeles County`. */
-  countyName: string
-  /** Postal abbreviation, e.g. `CA`. */
-  state: string
-  /**
-   * `AREALAND_PART` as a percentage of the ZCTA's own land area, rounded.
-   * 100 means the ZCTA nests cleanly in this county; below 100 means it
-   * straddles a boundary and the remainder lies in a neighbouring county.
-   */
-  landSharePercent: number
-  /** True only at a share of 100. */
-  whollyContained: boolean
-}
-
-/** The committed artefact's shape, as written by the generator. */
-export interface PackedCountyIndex {
-  v: number
-  source: string
-  note?: string
-  /** Delta-encoded, ascending ZCTA list: each value is `zip - previous - 1`. */
-  zd: number[]
-  /** County dictionary, indexed by the id stored in each record. */
-  counties: [string, string][]
-  /** State FIPS to postal abbreviation, so no per-record state field is needed. */
-  states: Record<string, string>
-  /** Fixed-width records, one per ZIP, in `zd` order. */
-  rec: string
-}
-
-/**
- * Unpacks the artefact into records keyed by ZIP.
- *
- * Every failure here is a thrown error rather than a skipped row. A partly
- * decoded index would attribute ZIPs to the wrong counties while still looking
- * like a working lookup, and a county aggregate built on it would be wrong in a
- * way no reader could see.
- */
+/** Unpacks the artefact into records keyed by ZIP, through the shared decoder. */
 export function parseCountyIndex(packed: PackedCountyIndex): Map<string, CountyIndexRecord> {
-  if (packed.v !== 1) throw new Error(`zcta-counties.json version ${packed.v}; this reader expects 1`)
-  if (!Array.isArray(packed.counties) || packed.counties.length === 0) {
-    throw new Error('zcta-counties.json carries no county dictionary')
-  }
-  if (!Array.isArray(packed.zd) || typeof packed.rec !== 'string') {
-    throw new Error('zcta-counties.json is missing its zip list or records')
-  }
-  if (packed.zd.length * RECORD_WIDTH !== packed.rec.length) {
-    throw new Error(
-      `zcta-counties.json has ${packed.zd.length} ZIPs but ${packed.rec.length} record characters; ` +
-        `each record is ${RECORD_WIDTH} characters, so the file is inconsistent`,
-    )
-  }
-
-  const counties = packed.counties.map(([geoid, name]) => {
-    if (!/^\d{5}$/.test(String(geoid))) throw new Error(`county GEOID "${geoid}" is not five digits`)
-    if (!String(name ?? '').trim()) throw new Error(`county ${geoid} has no published name`)
-    return { geoid: String(geoid), name: String(name) }
-  })
-
-  const out = new Map<string, CountyIndexRecord>()
-  let previous = -1
-  for (let i = 0; i < packed.zd.length; i++) {
-    const delta = packed.zd[i]
-    if (delta === undefined || !Number.isInteger(delta) || delta < 0 || delta > 9999) {
-      throw new Error(`ZIP delta out of range at record ${i}: ${delta} (0..9999 expected)`)
-    }
-    const zipNumber = previous + delta + 1
-    previous = zipNumber
-    const zip = String(zipNumber).padStart(5, '0')
-    if (!/^\d{5}$/.test(zip)) throw new Error(`decoded ZIP "${zip}" at record ${i} is not five digits`)
-
-    const record = packed.rec.slice(i * RECORD_WIDTH, (i + 1) * RECORD_WIDTH)
-    const countyId = Number(record.slice(0, 4))
-    const share = Number(record.slice(4, 7))
-    const county = counties[countyId]
-    if (!county) throw new Error(`record ${i} (${zip}) points at county id ${countyId}, which the dictionary lacks`)
-    if (!Number.isInteger(share) || share < 0 || share > 100) {
-      throw new Error(`record ${i} (${zip}) carries land share ${share}, outside 0..100`)
-    }
-    const state = packed.states?.[county.geoid.slice(0, 2)]
-    if (!state) {
-      throw new Error(`county ${county.geoid} has state FIPS ${county.geoid.slice(0, 2)}, which the file does not map`)
-    }
-
-    out.set(zip, {
-      zip,
-      countyGeoid: county.geoid,
-      countyName: county.name,
-      state,
-      landSharePercent: share,
-      whollyContained: share === 100,
-    })
-  }
-
-  // Asserted after decoding, so a malformed record names its own defect instead
-  // of being masked by a count that is also wrong.
-  if (out.size !== EXPECTED_COUNTY_INDEX_ZCTAS) {
-    throw new Error(
-      `${out.size} ZIP codes in zcta-counties.json; the country has ` +
-        `${EXPECTED_COUNTY_INDEX_ZCTAS}, and a short index is a bug in the artefact`,
-    )
-  }
-  return out
+  return unpackCountyIndex(packed)
 }
 
 /** The county for one ZIP, or undefined when the ZIP is not in the index. */

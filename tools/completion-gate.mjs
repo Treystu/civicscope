@@ -70,8 +70,25 @@ import { createServer } from 'node:net'
 import { scanForEmoji } from './emoji-scan.mjs'
 import { scanForWeird } from './mojibake-scan.mjs'
 import { scanForSecrets } from './secret-scan.mjs'
+import { compareSitemapToIndex, unpackCountyIndex } from './zcta-index.mjs'
 import { decideGate } from './gate-score.mjs'
 const ROOT = process.cwd()
+
+/**
+ * The committed ZCTA index, decoded once per run through the shipped decoder.
+ *
+ * Cached because the sitemap check is not the only caller, and decoding 33,791
+ * records twice would be waste in a gate that already takes minutes. The module
+ * is free of Node built-ins (it ships in the browser bundle), so the file read
+ * happens here, at the caller that has a filesystem.
+ */
+let zctaIndexCache
+const committedZctaIndex = () => {
+  zctaIndexCache ??= unpackCountyIndex(
+    JSON.parse(readFileSync(join(ROOT, 'public', 'map', 'zcta-counties.json'), 'utf8')),
+  )
+  return zctaIndexCache
+}
 // Every child-process argument in this file is a literal, never user input, so
 // the shell concatenation DEP0190 warns about cannot be exploited here.
 process.emitWarning = ((orig) => (w, ...a) => (w?.name === 'DeprecationWarning' && w.code === 'DEP0190' ? undefined : orig(w, ...a)))(process.emitWarning)
@@ -1054,10 +1071,33 @@ if (process.env.SKIP_NETWORK !== '1') {
 
     if (sm.body.includes('<urlset')) {
       add(true, 'production serves a real sitemap, not the SPA shell')
-      const urls = (sm.body.match(/<url>/g) ?? []).length
-      add(urls > 30000, `sitemap covers every ZIP code (${urls} URLs)`)
+      // Set equality, not a count. `urls > 30000` allowed a sitemap missing 3,790
+      // ZIPs to pass a check labelled "covers every ZIP code" (issue #78); the
+      // same label now names what is measured, and the decoder is the shipped
+      // one, imported rather than copied, because two hand-rolled decoders in
+      // this repository each got the packing subtly wrong.
+      const { missing, extra } = compareSitemapToIndex(sm.body, committedZctaIndex())
+      add(
+        missing.length === 0 && extra.length === 0,
+        `sitemap covers every ZIP code (${missing.length} missing, ${extra.length} extra)` +
+          (missing.length ? ` - first missing: ${missing.slice(0, 5).join(', ')}` : ''),
+      )
     } else {
       localFile('sitemap.xml', 'sitemap.xml')
+      // The runner could not reach the deployment, so the same set comparison
+      // runs against the file this run just built. Labelled separately so the
+      // clause's citation still resolves to exactly one check.
+      const localSitemap = join(dist, 'sitemap.xml')
+      if (existsSync(localSitemap)) {
+        const { missing, extra } = compareSitemapToIndex(readFileSync(localSitemap, 'utf8'), committedZctaIndex())
+        add(
+          missing.length === 0 && extra.length === 0,
+          `build sitemap names exactly the committed ZIP set (${missing.length} missing, ${extra.length} extra)` +
+            (missing.length ? ` - first missing: ${missing.slice(0, 5).join(', ')}` : ''),
+        )
+      } else {
+        add(false, 'build sitemap names exactly the committed ZIP set (dist/sitemap.xml is absent)')
+      }
     }
 
     if (rb.body.includes('User-agent')) add(true, 'production serves a real robots.txt')

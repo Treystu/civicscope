@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseCountyIndex, type PackedCountyIndex } from '../src/core/zcta-county-index'
+import { compareSitemapToIndex } from '../tools/zcta-index.mjs'
 
 /**
  * Issue #78: the gate's sitemap proof is `urls > 30000` under the label "sitemap covers
@@ -68,7 +69,7 @@ describe('Sitemap completeness (issue #78)', () => {
     expect(extra.slice(0, 10)).toEqual([])
   })
 
-  it('the strict rule rejects a sitemap missing one ZIP, and the gate count accepts it', () => {
+  it('the gate now uses the strict rule: one dropped ZIP fails it', () => {
     // A full-length sitemap with its first ZIP dropped: 33,790 ZIPs plus the two static pages.
     const dropped = zips[0]
     const xml = sitemapFor(zips.slice(1))
@@ -76,13 +77,22 @@ describe('Sitemap completeness (issue #78)', () => {
     // Strict: the missing code is named.
     expect(compare(zips, xml).missing).toEqual([dropped])
 
-    // The gate's actual rule, reproduced exactly as written at completion-gate.mjs:1057.
-    const urlCount = (xml.match(/<url>/g) ?? []).length
-    const gateRule = urlCount + 2 > 30000
-    expect(gateRule).toBe(true)
+    // The rule the gate now imports from tools/zcta-index.mjs, on the same input.
+    expect(compareSitemapToIndex(xml, parseCountyIndex(INDEX)).missing).toEqual([dropped])
 
-    // Both statements are true of the same input: the rule the gate uses says "pass" for a
-    // sitemap that is missing a ZIP code, while its label says "covers every ZIP code".
-    expect(compare(zips, xml).missing.length).toBeGreaterThan(0)
+    // The rule this check used to carry - `urls + 2 > 30000` - still reads true on the
+    // same input. Pinned so the headroom that let 3,790 missing ZIPs pass cannot creep
+    // back in unnoticed if the set comparison is ever softened to a count.
+    const urlCount = (xml.match(/<url>/g) ?? []).length
+    expect(urlCount + 2 > 30000).toBe(true)
+  })
+
+  it('the gate and the app decode the index with one decoder', () => {
+    // #78's cure prerequisite: the gate is plain .mjs and cannot import the TS module,
+    // so both sides import tools/zcta-index.mjs. If a second decoder is ever added, its
+    // output diverges here rather than in a county total nobody re-checks.
+    const shipped = parseCountyIndex(INDEX)
+    const compared = compareSitemapToIndex(sitemapFor(shipped.keys()), shipped)
+    expect(compared).toEqual({ missing: [], extra: [] })
   })
 })
