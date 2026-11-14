@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => ({
     environment: 'node',
     // The named gate tests live in tests/, alongside the sources they assert
     // about rather than inside them.
-    include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'tests/**/*.test.ts', 'tests/**/*.test.tsx'],
     // `src/live` is excluded so the default suite is genuinely hermetic, which is
     // what the CI workflow's verify step has claimed all along: "Hermetic: no
     // network, no credentials." Until now that claim was false — the glob above

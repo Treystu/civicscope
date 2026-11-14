@@ -66,7 +66,7 @@ describe('e2e: URL-carried comparison', () => {
     const historyBefore = await page.evaluate(() => window.history.length)
 
     await page.fill('#place', '10001')
-    await page.click('button[type="submit"]')
+    await page.locator('form').filter({ has: page.locator('#place') }).locator('button[type="submit"]').click()
     await waitForCard(page, '10001')
     expect(await page.evaluate(() => window.location.search)).toContain('z=10001,78701')
 

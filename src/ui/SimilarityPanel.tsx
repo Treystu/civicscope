@@ -44,6 +44,9 @@ import {
   type Weights,
 } from '../core/similarity'
 import type { AreaRow } from '../core/plugins/acs'
+import type { MuseProvider } from '../core/ai/provider'
+import { ExplainAction } from './ai/ExplainAction'
+import { figureInputsFromAreaRow } from './ai/figure-input'
 
 const FLAG_KEY = 'civicscope.similarity.v1.enabled'
 const WEIGHTS_KEY = 'civicscope.similarity.v1.weights'
@@ -96,17 +99,22 @@ export function SimilarityPanel({
   sweep,
   selected,
   onAdd,
+  explainProvider,
+  initialOriginZip = '',
 }: {
   /** The loaded country-wide screen; the comparison is local, so this is the whole data source. */
   sweep: readonly AreaRow[]
   /** ZIP codes in the comparison, so their buttons read as done. */
   selected: readonly string[]
   onAdd: (zcta: string) => void
+  explainProvider?: MuseProvider
+  initialOriginZip?: string
 }) {
   const [enabled, setEnabled] = useState(() => flagOn())
   const [weights, setWeights] = useState<Weights>(() => storedWeights())
   const [cutoff, setCutoff] = useState<number>(() => storedCutoff())
-  const [originZip, setOriginZip] = useState('')
+  const [originZip, setOriginZip] = useState(() => /^\d{5}$/.test(initialOriginZip) ? initialOriginZip : '')
+  const [explainZip, setExplainZip] = useState<string | null>(null)
 
   function persistEnabled(on: boolean) {
     setEnabled(on)
@@ -139,6 +147,7 @@ export function SimilarityPanel({
     () => (originZip && /^\d{5}$/.test(originZip) ? sweep.find((r) => r.zcta === originZip) ?? null : null),
     [originZip, sweep],
   )
+  const rowByZip = useMemo(() => new Map(sweep.map((row) => [row.zcta, row] as const)), [sweep])
 
   const results = useMemo(
     () => (origin ? findSimilar(sweep, origin, weights, cutoff) : []),
@@ -156,6 +165,16 @@ export function SimilarityPanel({
    * exact overclaim this panel exists to avoid.
    */
   const dims = origin ? comparisonDims(origin, weights) : []
+  const explainMatch = explainZip ? rowByZip.get(explainZip) ?? null : null
+  const showExplanation = Boolean(
+    explainProvider && origin && explainMatch && results.some((row) => row.zcta === explainZip),
+  )
+  const explanationFigures = origin && explainMatch
+    ? [
+        ...figureInputsFromAreaRow(origin, dims),
+        ...figureInputsFromAreaRow(explainMatch, dims),
+      ]
+    : []
 
   return (
     <details className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
@@ -279,10 +298,29 @@ export function SimilarityPanel({
                         >
                           {added ? 'Added' : 'Compare'}
                         </button>
+                        {explainProvider && (
+                          <button
+                            type="button"
+                            onClick={() => setExplainZip(r.zcta)}
+                            className="min-h-[44px] rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
+                          >
+                            Explain {r.zcta}
+                          </button>
+                        )}
                       </li>
                     )
                   })}
                 </ul>
+              )}
+              {showExplanation && explainProvider && (
+                <div className="mt-2">
+                  <ExplainAction
+                    title="this similarity result"
+                    figureSetId="similarity"
+                    figures={explanationFigures}
+                    provider={explainProvider}
+                  />
+                </div>
               )}
             </div>
           )}

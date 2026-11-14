@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useHousingQuery } from '../core/useHousingQuery'
+import { createStubProvider } from '../core/ai/provider'
 import { loadPlaceIndex, type PlaceIndex, type PlaceSuggestion } from '../core/zcta-place-index'
 import { FairHousingNotice } from './FairHousingNotice'
 import { GuidedTour, TourNotice, shouldShowTour } from './GuidedTour'
@@ -18,6 +19,8 @@ import { FundingSection } from './Funding'
 import { StateFilter } from './StateFilter'
 import { MapView } from './MapView'
 import { sortSweepRows } from '../core/sweep-sorting'
+import { AskPanel } from './ai/AskPanel'
+import { figureInputsFromAreaRows, figureInputsFromMetrics } from './ai/figure-input'
 
 type View = 'explore' | 'map' | 'methodology'
 
@@ -37,6 +40,9 @@ const PRESETS: { id: string; label: string; sort: SortableMetricKey | null }[] =
 ]
 
 const DEFAULT_PRESET = PRESETS[0]!
+
+// The contest surface stays offline until the separately scoped live wiring is approved.
+const HOUSE_STUB_PROVIDER = createStubProvider()
 
 type ScreeningSort = {
   presetId: string
@@ -139,6 +145,22 @@ export default function App() {
   const placeLabel = useCallback(
     (zip: string) => placeIndex?.label(zip) ?? null,
     [placeIndex],
+  )
+
+  const askFigures = useMemo(
+    () =>
+      Object.values(q.drilldowns).flatMap((detail) =>
+        figureInputsFromMetrics(
+          detail.metrics,
+          [detail.zcta, detail.label, placeLabel(detail.zcta) ?? ''].filter(Boolean),
+        ),
+      ),
+    [q.drilldowns, placeLabel],
+  )
+  const savedViewFigures = useCallback(
+    (zips: readonly string[]) =>
+      figureInputsFromAreaRows(q.sweep, zips, ['median_gross_rent', 'median_home_value']),
+    [q.sweep],
   )
 
   /** Adds one ZIP code, resolving its city for the header when we have one. */
@@ -515,6 +537,7 @@ export default function App() {
                   rows={q.sweep}
                   loading={(q.sweepProgress?.done ?? 0) < (q.sweepProgress?.total ?? 0)}
                   selectedZctas={q.selectedZctas}
+                  explainProvider={HOUSE_STUB_PROVIDER}
                   onSelect={(zctas) => {
                     for (const zcta of zctas.slice(0, 6)) {
                       const row = q.sweep.find((r) => r.zcta === zcta)
@@ -523,7 +546,12 @@ export default function App() {
                   }}
                 />
 
-                <Comparison drilldowns={q.drilldowns} onDeselect={q.deselect} placeLabel={placeLabel} />
+                <Comparison
+                  drilldowns={q.drilldowns}
+                  onDeselect={q.deselect}
+                  placeLabel={placeLabel}
+                  explainProvider={HOUSE_STUB_PROVIDER}
+                />
 
                 {q.sweepFromCache && (
                   <p className="mt-2 text-xs text-slate-500">
@@ -543,6 +571,9 @@ export default function App() {
           </>
         ) : (
           <>
+            <div className="mb-6 panel panel-padded">
+              <AskPanel provider={HOUSE_STUB_PROVIDER} figures={askFigures} />
+            </div>
             {searchPanel}
             {showKeylessGuidance && (
               <section className="mt-4 panel panel-padded">
@@ -748,6 +779,7 @@ export default function App() {
                     sweep={q.sweep}
                     selected={q.selectedZctas}
                     onAdd={(zcta) => addZip(zcta)}
+                    explainProvider={HOUSE_STUB_PROVIDER}
                   />
 
                   <SweepTable
@@ -767,10 +799,16 @@ export default function App() {
                     }}
                     selectedZctas={q.selectedZctas}
                     placeLabel={placeLabel}
+                    explainProvider={HOUSE_STUB_PROVIDER}
                   />
                 </section>
 
-                <Comparison drilldowns={q.drilldowns} onDeselect={q.deselect} placeLabel={placeLabel} />
+                <Comparison
+                  drilldowns={q.drilldowns}
+                  onDeselect={q.deselect}
+                  placeLabel={placeLabel}
+                  explainProvider={HOUSE_STUB_PROVIDER}
+                />
               </>
             )}
 
@@ -797,7 +835,12 @@ export default function App() {
 
             {/* Keep the comparison visible until the first sweep rows arrive. */}
             {q.selected.length > 0 && q.sweep.length === 0 && (
-              <Comparison drilldowns={q.drilldowns} onDeselect={q.deselect} placeLabel={placeLabel} />
+              <Comparison
+                drilldowns={q.drilldowns}
+                onDeselect={q.deselect}
+                placeLabel={placeLabel}
+                explainProvider={HOUSE_STUB_PROVIDER}
+              />
             )}
 
             {/*
@@ -809,7 +852,12 @@ export default function App() {
               Found by a browser test that emptied the comparison before
               restoring, which is a perfectly ordinary thing for a reader to do.
             */}
-            <SavedSearches selectedZctas={q.selectedZctas} onRestore={(zips) => zips.forEach(addZip)} />
+            <SavedSearches
+              selectedZctas={q.selectedZctas}
+              onRestore={(zips) => zips.forEach(addZip)}
+              explainProvider={HOUSE_STUB_PROVIDER}
+              figuresForSaved={savedViewFigures}
+            />
 
             {/*
               The Fair Housing notice is rendered unconditionally whenever

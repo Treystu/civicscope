@@ -233,6 +233,7 @@ describe('e2e: map pointer cancellation', () => {
       expect(await tooltip.innerText()).toContain(hoverLabel)
       await mapPage.mouse.click(initialX, initialY)
       await mapPage.locator('#comparison-heading').waitFor({ state: 'visible', timeout: 5000 })
+      await mapPage.getByRole('button', { name: 'Explain the selected map figures' }).waitFor({ timeout: 5000 })
       for (let index = 0; index < initialCell.zctas.length; index += 1) {
         await mapPage.getByRole('button', { name: 'Remove', exact: true }).first().click()
       }

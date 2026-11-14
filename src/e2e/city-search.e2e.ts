@@ -188,7 +188,7 @@ describe.skipIf(!hasCitySearch)('e2e: city search', () => {
     await page.waitForTimeout(700)
     expect(await listbox().count()).toBe(0)
 
-    await page.click('button[type="submit"]')
+    await page.locator('form').filter({ has: page.locator('#place') }).locator('button[type="submit"]').click()
     await page.waitForSelector('[role="alert"]', { timeout: 20000 })
     expect(await page.locator('[role="alert"]').first().innerText()).toMatch(/No US city or ZIP code matches/)
   }, 60000)

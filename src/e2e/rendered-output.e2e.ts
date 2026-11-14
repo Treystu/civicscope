@@ -207,7 +207,7 @@ describe.skipIf(!KEY)('rendered output contains no placeholder', () => {
   it('renders no sentinel in a single-ZIP drilldown either', async () => {
     // The drilldown path is separate from the sweep and has its own parser path.
     await page.fill('#place', '00786')
-    await page.click('button[type="submit"]')
+    await page.locator('form').filter({ has: page.locator('#place') }).locator('button[type="submit"]').click()
     const deadline = Date.now() + 120000
     while (Date.now() < deadline) {
       const card = await page.locator('main article').count()
