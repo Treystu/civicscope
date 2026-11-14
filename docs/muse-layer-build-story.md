@@ -99,7 +99,7 @@ a ruling.
 | Diagnostics e2e failed the completion gate | The gate serves `dist` with `vite preview`, which has no Functions. The new e2e demanded a reporting server on a surface that was correctly reporting nothing. | `35d931a`: the test now accepts a reporting server with agreeing probes, or an unavailable server with nulls and named unknowns, and keeps every leak assertion before either branch. |
 | Eval entry points exited 1 with no output on Windows | `spawnSync('npx.cmd')` returns `EINVAL` on Node 24. The underlying suites were green, so the wrapper made the record look worse than the code. | `6ae16ea`: invoke the repo's own vitest entry with the current Node. |
 | Corpus count was recorded as 92 | The generated report said 91 all along; the prose and PR body said 92. | `6ae16ea`: corrected to 91, with the composition stated. |
-| Privacy copy claims a Durable Object | The shipped meter is per-isolate memory; there is no Durable Object binding or class. The gate does not read privacy prose, so it did not catch this. | Recorded in [docs/privacy-verification-checklist.md](privacy-verification-checklist.md); owner decision, not resolved here. |
+| Privacy copy claims a Durable Object | The shipped meter is per-isolate memory; there is no Durable Object binding or class. The gate does not read privacy prose, so it did not catch this. | Closed: the text no longer claims durable storage, and the FU1 cure (#83, `89d777f`) removed the per-client cap this copy also described. See [docs/privacy-verification-checklist.md](privacy-verification-checklist.md). |
 | BYO settings promised in copy but unreachable | `ByoOffer` says "add it in settings" when the shared allowance is exhausted, but `ByoSettings` is not mounted and no `onOpenSettings` is passed. | Recorded on #63; not silently fixed, because mounting it is a product/UI decision. |
 
 The gate did catch a real integration defect on its own: at `cc0f3e3` the new
@@ -126,7 +126,7 @@ This is the list the submission text and demo script must obey.
 | Briefing pack (F6) | **Real, with a re-verification gate** | `briefing()` at `917d3e46` re-verifies every figure and refuses on an altered value, an altered margin of error, a source that no longer resolves, or a filled-in absence; `tests/ai/briefing.test.ts` covers each. |
 | A visitor-supplied Meta key is usable | **Not in this build** | `ByoSettings` exists and is tested, but it is not mounted; `ByoOffer` has no settings action. |
 | Per-client cap is active | **No such thing exists** | K3 (2026-11-13) settles the meter as accounting-only. The capability was removed rather than left unset (issue #83), because an unset cap still implied a mechanism the design does not have. The aggregate pool shutoff is 52.50 USD. |
-| Privacy text is final | **No** | `docs/privacy-workbench.md` says WORKBENCH COPY - NOT FINAL; one line (Durable Object) is unsupported by the shipped meter. |
+| Privacy text is final | **No - code-verified, sign-off open** | Every claim is now verified against shipped config (15 rows, including the 2026-11-14 FU1 correction), but `docs/privacy.md` still needs the owner's sign-off and the deployed-config half needs the layer on production. Issue #63. |
 | The layer was built with Meta Muse Code | **No evidence** | Commit trailers name Codebuff; no Muse Code artefact exists. Do not claim it. |
 
 ## Reproduce

@@ -10,7 +10,7 @@ Metering uses an in-memory aggregate counter kept per isolate. It counts only re
 
 It never stores searches, keys, query text, IP addresses, or content. There is no per-search or per-person record in this store: only the running totals needed to operate the service and to stop it when the allowance is used up.
 
-A hard budget shutoff is kept: when the configured budget is reached, further shared-allowance calls stop rather than continuing to spend. Any per-client cap is set at meter config; this copy states no cap value because none is stated here on purpose.
+A hard budget shutoff is kept: when the configured budget is reached, further shared-allowance calls stop rather than continuing to spend. There is no per-client cap: the counter is accounting-only, and the pool-wide shutoff is the only limit it enforces. (Corrected 2026-11-14 with the FU1 cure; this copy was superseded by docs/privacy.md and is kept only as the workbench record.)
 
 ## What is sent to the model (D5 minimisation)
 

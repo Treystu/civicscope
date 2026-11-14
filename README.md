@@ -64,7 +64,8 @@ SourceRefs before the call) for explain and briefing - then meter-gates the call
 and validator-gates the prose that comes back.
 
 The meter is an in-memory aggregate: request, token, spend and error-class
-totals, plus per-client spend under an opaque browser-generated id. It holds no
+totals, and nothing per person - there is no per-client counter and no
+per-client cap (removed 2026-11-14 under the K3 ruling, issue #83). It holds no
 query text, no IP, no key and no content, and it lives in one isolate, so
 totals reset on a cold start - `/api/muse/diagnostics` reports
 `meterPersistence: "isolate"` rather than implying durable storage. When the

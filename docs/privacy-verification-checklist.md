@@ -1,7 +1,12 @@
 # Privacy text verification checklist
 
 Date of this pass: 2026-11-07, re-read 2026-11-11 against the route set and the
-meter as they ship. Issue: #63. Plan criterion: 6.2.1, "shipped
+meter as they ship, re-read 2026-11-14 after the FU1 meter cure (#83). Issue: #63.
+
+The 2026-11-14 re-read changed only the meter rows and rows 5 and 14: the
+per-client cap was removed rather than left unset, so the text no longer
+describes a cap and this checklist no longer cites one. Every other row stands
+as measured on 2026-11-11. Plan criterion: 6.2.1, "shipped
 privacy text verified line-by-line against the shipped proxy deployment config as
 a gate checklist item".
 

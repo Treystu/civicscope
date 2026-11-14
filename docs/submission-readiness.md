@@ -1,8 +1,18 @@
 # Submission readiness checklist (Pass 3)
 
-Date: 2026-11-07, rows re-read 2026-11-11. Lane head at the time of writing:
-`0b73a31`, re-read at `915fcf8`. Issue: #64. Plan:
-`docs/full-muse-layer-plan.md` section 8.
+Date: 2026-11-07, rows re-read 2026-11-11 and again 2026-11-14. Lane head at the
+time of writing: `0b73a31`, re-read at `915fcf8`, re-read at `89d777f`.
+Issue: #64. Plan: `docs/full-muse-layer-plan.md` section 8.
+
+The 2026-11-14 re-read changed rows 6 and 9 and no others: row 6 now covers the
+FU1 meter cure (accounting-only, no per-client cap), and row 9 names the keyed
+rail readings at the current heads instead of the older ones.
+
+**Launch framing.** This checklist began as the contest submission package. For
+the open-source launch the gates are rows 1-9, 14, 16 and 17; rows 10-13 are
+contest-package artefacts (production demo video, recorded fallback, portal
+text) that a launch does not require, and row 15 is recruited impact evidence.
+Nothing below is renumbered, so older citations still resolve.
 
 The 2026-11-11 re-read changed two rows and no others. Row 9 was quoting a
 semantic reading from an older head with no keyed run on the current one, and row
@@ -42,10 +52,10 @@ not run is reported as not run.
 | 3 | Methodology AI section generated, not hand-written | **DONE** | `MethodAiSection` derives from the registry; drift is a type error |
 | 4 | Build story recorded | **DONE** | `docs/muse-layer-build-story.md` |
 | 5 | Eval corpus, coverage report and scores recorded | **DONE** | Corpus v1, generated coverage report, `docs/muse-layer-eval.md` |
-| 6 | Privacy text verified against shipped config | **PARTIAL** | Code-side verification done (13 claims); the deployed-config half needs the layer on production, and sign-off is owner-reserved |
+| 6 | Privacy text verified against shipped config | **PARTIAL** | Code-side verification done (15 claims, including the 2026-11-14 FU1 correction: no per-client cap, no per-client total, pool shutoff and breaker intact); the deployed-config half needs the layer on production, and sign-off is owner-reserved |
 | 7 | Agent onboarding artefact, handoff and abort test | **DONE** | Workflow v1.0.0, mounted handoff, 14 passing cases |
 | 8 | Independent clean-account onboarding run | **NOT RUN** | Requires a human non-author with a real mailbox; packet filed on #59 |
-| 9 | Completion gate green (verify + live-contracts + gate) | **NOT MET** | The deterministic layer passes in full and the settled count is 101/101. The semantic layer needs the keyed CI run, and no keyed run exists on `915fcf8` or on `906ac8b`; the last named readings are job 158 at `b3c8049` (overall **77.7**, `requirements_met` 0.891, overclaiming 0.56) and job 156 at `e722d2b` (**78.6**). Sampled readings move a couple of points, so none of these is a measurement of the current head and none is quoted as one. Above the 99 threshold either way, so the gate reports FAILED: reported as not met, never rounded up |
+| 9 | Completion gate green (verify + live-contracts + gate) | **NOT MET** | Deterministic layer passes in full: **101/101** at `89d777f`, with `verify` job 225 and `live-contracts` job 223 green at that head. The semantic layer is the only red: **78.7** at `89d777f` (78.5 at `4ed8019`, 78.1 at the branch point `5b57d08`), against the frozen 99 and a spread inside the instrument's own noise floor. The cure is the owner's clause_7 ruling on #79; rewording the record toward 99 is refused. Reported as not met, never rounded up |
 | 10 | House layer deployed to production | **NOT DONE** | Production tracks `main` without the layer; the merge path is owner-reserved. `docs/submission-path-deploy.md` records the preview that proves the wiring |
 | 11 | Demo video filmed against the production build | **NOT RUN** | Cannot be filmed before row 10; owner-side |
 | 12 | Recorded fallback from the same commit as the live site | **NOT RUN** | Requires row 10; owner-side. Commit hash must be stated in the submission when captured |
