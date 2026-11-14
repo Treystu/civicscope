@@ -67,13 +67,20 @@ a false universal true. `/api/muse/*` exists, deliberately, because the provider
 not reach the browser. Option 1 alone cannot lift the clause; at best it demonstrates the
 four sub-properties the clause already scores above 0.9 on.
 
-Option 2 restates the clause to what is measurable and true:
+Option 2 restates the clause to what is measurable and true. The identity statement
+the lane proposes for the ruling, in the form the unification brief asks for (data
+layer serverless; the AI proxy stateless, storing nothing):
 
 ```
-no advertising, analytics, search logging or accounts anywhere; no runtime backend
-on the housing data path, the only server-side surface being the disclosed /api/muse
-proxy that stores counts only
+no advertising, analytics, search logging or accounts anywhere; the housing data
+layer is serverless; the AI proxy is stateless and stores nothing - counts only,
+no bodies, no query text, no IP addresses, no keys
 ```
+
+That is a statement of identity rather than of feature absence, and each part of it
+is already the shipped behaviour: no storage binding exists (`docs/privacy-verification-checklist.md`
+"Storage bindings: None declared"), the proxy keeps no bodies (`functions/api/muse/shared.ts`),
+and the meter's totals are per-isolate integers (`src/core/ai/meter.ts`).
 
 ## Why the lane stopped here
 
@@ -97,6 +104,7 @@ persuasive, that is the second place to look.
 1. Owner rules option 1 (record-side): the lane adds deterministic checks for the absence
    of advertising, analytics and accounts, and the clause stays as written and stays red
    because `/api/muse/*` exists. Documented as red, permanently.
+
 2. Owner rules option 2 (instrument-side): the clause is restated as above, the two
    existing proofs carry it, and the gate's score is re-measured on the rail. That is an
    instrument edit and the owner's alone.
