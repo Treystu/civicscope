@@ -62,7 +62,7 @@ recorded is the evidence a sign-off would need.
 | 12 | "There is no tracking, no analytics, and no search logging" | No analytics dependency or script; no request-body logging; diagnostics counts are local and exported only by the visitor | PASS |
 | 13 | "Voice input is not part of this build" | Inert route, no UI, microphone permission policy closed | PASS |
 | 14 | "No per-client total is kept either: the counter is accounting-only and divides nothing by visitor, by address or by browser" | The meter keeps no per-client map and no client id is passed to `reserve` or `settle`; `meterPersistence: "isolate"` still reports that totals reset on a cold start | PASS |
-| 15 | "The briefing sends the figure set already on screen, re-checked against its sources before the call, never the question text" | `handleBriefing` accepts `figureSetId` and a `values[]` allowlisted to `key`/`value`/`marginOfError`; a `queryText` field is rejected by the shape check | PASS |
+| 15 | "The briefing sends the figure set already on screen, re-checked against its sources before the call, never the question text" | `handleBriefing` accepts `figureSetId` and a `values[]` allowlisted to `key`/`value`/`marginOfError` (any extra field in a value item fails the shape check), and calls the provider with `{ figureSetId, values }` built field by field - so a top-level `queryText` is **never forwarded** rather than actively rejected. The guarantee is non-forwarding, which is the property the text claims; the earlier wording here said "rejected", which overstated the mechanism | PASS |
 
 ## What remains before this text is final
 

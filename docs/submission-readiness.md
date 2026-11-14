@@ -4,9 +4,12 @@ Date: 2026-11-07, rows re-read 2026-11-11 and again 2026-11-14. Lane head at the
 time of writing: `0b73a31`, re-read at `915fcf8`, re-read at `89d777f`.
 Issue: #64. Plan: `docs/full-muse-layer-plan.md` section 8.
 
-The 2026-11-14 re-read changed rows 6 and 9 and no others: row 6 now covers the
-FU1 meter cure (accounting-only, no per-client cap), and row 9 names the keyed
-rail readings at the current heads instead of the older ones.
+The 2026-11-14 re-read changed rows 6, 9 and 16: row 6 now covers the FU1 meter
+cure (accounting-only, no per-client cap); row 9 states the semantic finding as a band
+rather than naming a head's number that the next push supersedes; and row 16 corrected
+itself, because it claimed `git cherry` found zero differences when it flags seven
+squash-artefact commits. That last one is the kind of row a signer would rely on, so it
+was retested rather than re-read.
 
 **Launch framing.** This checklist began as the contest submission package. For
 the open-source launch the gates are rows 1-9, 14, 16 and 17; rows 10-13 are
@@ -62,7 +65,7 @@ not run is reported as not run.
 | 13 | Portal submission text drafted from shipped behaviour | **NOT DRAFTED** | Blocked on two owner inputs: the live URL the text must point at (row 10), and the Explain claimed-vs-stretch split, which this package must not settle silently |
 | 14 | Judging-evidence pack assembled from real artefacts | **DONE** (as an index) | The artefact table above is the pack's index; each entry names its path and state |
 | 15 | Impact evidence (consented testimonials, task records) | **NOT RUN** | Requires real users; no analytics or tracking collects it by design, so it is recruited and recorded by hand, owner-side |
-| 16 | Branch hygiene | **DONE** (measured) | Eight `archive/20261021/*` refs exist on `origin` and `git cherry origin/main` reports zero commits not already in main on all of them; deleting the refs is parked on #31 as a destructive owner act |
+| 16 | Branch hygiene | **DONE** (measured, corrected 2026-11-14) | Eight `archive/20261021/*` refs exist on `origin`. `git cherry origin/main` does **not** report zero differences: it flags 7 of their 13 unique commits with no patch-equivalent, which is what a squash merge produces, not evidence of unmerged work. Checked by content instead: 37 of 40 sampled added lines are in `main` verbatim and the other three are there under variant wording (`tools/completion-gate.mjs:353,357,487`, `docs/CHANGELOG.md:61`). No ref holds content absent from `main`. Deleting the refs is parked on #31 as a destructive owner act |
 | 17 | Standing owner call preserved, not settled | **DONE** | Rows 13 and 8 leave the Explain claim split and the onboarding run explicitly open |
 
 ## What must be true before this package can be submitted
