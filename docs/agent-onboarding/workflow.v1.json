@@ -1,8 +1,18 @@
 {
   "abortPolicy": {
-    "emailSearch": "When looking for a key-delivery message, search only for the expected sender/subject pattern. Never widen the search to other messages.",
+    "emailSearch": "When looking for a key-delivery message, search only for a message whose body carries a 40-character hexadecimal token. Never widen the search to other messages, and never open a message on sender alone.",
     "keyMaterial": "A key is never typed into chat, never written to a log, never sent to any CivicScope server (there is none for user keys), and never read back by the agent as proof. The only accepted proof of setup is the app's own re-validation event for that key.",
     "unexpectedScreen": "Halt before any key entry, report key state by presence only (never key material), and hand off to the manual path at the step equivalent to the step where the halt happened."
+  },
+  "approvalMechanics": "An approval point is satisfied only by the human's explicit yes in the conversation at that step. The agent says in plain words what it is about to do and where, then waits. Silence, an earlier yes, or the agent's own judgement is never an approval.",
+  "gotos": {
+    "abort-to-manual": "Stop the run. Do not attempt the current step another way. Report key state by presence only, and tell the user which manual step to continue at: the step's manualEquivalent value.",
+    "report-and-stop": "Stop the run. Report the observed text verbatim and do not retry unless the user explicitly asks. Report key state by presence only.",
+    "wait": "Suspend the run and tell the user what is being waited for. There is no timer and no automatic polling: the agent re-checks only when the user says to look again, and never widens an email search."
+  },
+  "handoff": {
+    "entryPoint": "The CivicScope app page's \"Set up with your agent\" section, anchored at #agent-handoff (src/ui/ai/agent-handoff.tsx, mounted in src/ui/App.tsx).",
+    "urlPattern": "The app origin the user is already on, with the fragment #agent-handoff. No other origin serves this page."
   },
   "keys": {
     "census": {
@@ -88,9 +98,9 @@
         ]
       },
       {
-        "action": "Read the key-delivery email from the Census Bureau.",
+        "action": "Read the key-delivery message in the user's mailbox.",
         "checkpoint": {
-          "expect": "The message matches the expected sender/subject pattern and contains a 40-character hexadecimal token."
+          "expect": "A message whose body contains a 40-character hexadecimal token. The token shape is the discriminator: no sender or subject is asserted here, because the repository records no verified one, so open a message only when it carries that token."
         },
         "completion": "checkpoint",
         "humanApproval": {
@@ -104,7 +114,7 @@
         "onFailure": [
           {
             "goto": "wait",
-            "note": "Enter the wait state and tell the user; check again later. Never widen the email search beyond the expected message.",
+            "note": "Take the wait goto and tell the user (no timer, no polling). Never widen the email search beyond the token-shaped message.",
             "when": "not-arrived"
           },
           {
@@ -264,6 +274,6 @@
     ]
   },
   "purpose": "An AI agent walks a fresh user through obtaining and placing the two browser-held keys CivicScope can use — the free Census API key and an optional personal Meta Model API key — without the key material ever transiting CivicScope, appearing in agent output or logs, or being accepted as an agent report. Setup success is confirmed only by the app's own re-validation events, named per key below.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "workflow": "civicscope-agent-onboarding"
 }

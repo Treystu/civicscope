@@ -46,7 +46,7 @@ export function AgentHandoff({ onOpenManual }: { onOpenManual?: () => void }) {
   }, [])
 
   return (
-    <section aria-labelledby="agent-handoff-heading" className="panel panel-padded">
+    <section id="agent-handoff" aria-labelledby="agent-handoff-heading" className="panel panel-padded">
       <h2 id="agent-handoff-heading" className="text-sm font-semibold text-slate-900">
         Set up with your agent
       </h2>
@@ -57,6 +57,11 @@ export function AgentHandoff({ onOpenManual }: { onOpenManual?: () => void }) {
         success itself, here, when its own key check succeeds. If anything on screen does not
         match what the workflow expects, the agent must stop before any key is entered and hand
         you back to the manual steps at the same point.
+      </p>
+
+      <p className="mt-1 text-sm text-slate-700">
+        A key you set up here is stored only in this browser's localStorage, on this origin. There
+        is no CivicScope server for user keys, so no key is held here or sent to us.
       </p>
 
       <ul className="mt-3 space-y-1 text-sm text-slate-700">

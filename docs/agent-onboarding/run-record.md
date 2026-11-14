@@ -190,3 +190,28 @@ Verdicts:
   to. **A human clean-account run is still required**, and agent
   onboarding remains not done under §6.2.5 until one is recorded
   here.
+
+## Amendments — workflow v1.0.1 (2026-11-14)
+
+The 2026-10-31 cold run's findings were about the artefact, not the
+implementation, so the artefact was amended rather than the finding
+waved away. Version 1.0.1 is the version a clean-account runner should
+follow; 1.0.0 stays described above because that run was performed
+against it.
+
+| Finding | State in 1.0.1 |
+|---|---|
+| 1. The delivery-email sender/subject pattern is never given | **Closed by removing the unverifiable claim.** The checkpoint and `abortPolicy.emailSearch` now name the discriminator that is actually checkable: a message whose body carries a 40-character hexadecimal token. No sender or subject is asserted, because this repository records no verified one - asserting a plausible address would have been an invention, and the token shape is what the app itself requires. |
+| 2. The goto targets are undefined | **Closed.** A `gotos` block states what `abort-to-manual`, `report-and-stop` and `wait` each do, matching the interpreter's behaviour. |
+| 3. No handoff link | **Closed.** A `handoff` block names the entry point and its URL pattern, and the section now carries `id="agent-handoff"`, so the anchor the artefact names is real rather than described. |
+| 4. The wait state is unspecified | **Closed by stating what is true, not by inventing a timer.** There is no timer and no polling: the agent re-checks when the user says to. Specifying an interval or a maximum wait would have described behaviour that does not exist. |
+| 5. Approval mechanics are unspecified | **Closed.** `approvalMechanics` states that only an explicit yes at that step is an approval, and that silence or an earlier yes is not. |
+| 6. Origin wording | **Closed on both sides.** The handoff surface now states that a key is stored only in this browser's localStorage on this origin with no CivicScope server for user keys, which is what the checkpoint expects to find. |
+| 7. Console navigation | **Open, external.** The path inside dev.meta.ai is not something this repository can verify, so it stays a runner observation rather than a claim here. |
+
+What the amendments do not change: the §6.2.5 run is still **outstanding**.
+An independent clean-account run by a human non-author, with a real
+mailbox for the Census key and a real Meta account if one is available,
+following v1.0.1 alone, is the bar. Until its row is appended here and
+`AGENT_ONBOARDING_RUN_STATUS` is flipped by whoever verifies it, the
+in-app handoff continues to say PENDING.

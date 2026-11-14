@@ -78,7 +78,13 @@ export interface WorkflowGraph {
   paths: Record<WorkflowPathId, WorkflowStep[]>
 }
 
-export const WORKFLOW_VERSION = '1.0.0'
+/**
+ * Bumped to 1.0.1 on 2026-11-14 with the artefact amendments the recorded
+ * non-author cold-run asked for: named goto semantics, approval mechanics,
+ * a real handoff anchor, an explicit no-timer wait, and a token-shape
+ * email discriminator in place of a sender no source here verifies.
+ */
+export const WORKFLOW_VERSION = '1.0.1'
 
 /** The success event each path's key-entry step must be confirmed by. */
 export const PATH_SUCCESS_EVENT: Record<WorkflowPathId, string> = {
