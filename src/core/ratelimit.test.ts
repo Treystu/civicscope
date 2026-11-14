@@ -59,7 +59,16 @@ describe('rate limit: concurrency is capped', () => {
 
 describe('rate limit: requests are spaced', () => {
   it('leaves a minimum gap between starts', async () => {
-    configureRateLimit({ minIntervalMs: 30, maxConcurrency: 1 })
+    // Measured flake, 2026-11-14: completion-gate job 221 at 53e7110 reported
+    // Deterministic 99/101 with this assertion failing on a diff that does not
+    // touch pacing. The mechanism is the one this file's own comments record:
+    // `lastStartedAt` is written immediately before the task is invoked, so a
+    // task whose entry is preempted lands later than its recorded start, and
+    // the next task's gap can shrink by exactly that preemption. The assertion
+    // is unchanged; the interval under test is raised so a preempted runner
+    // cannot erase a gap that the code really does leave (the shipped interval
+    // is 250ms, so 120ms tests the same property closer to reality than 30ms).
+    configureRateLimit({ minIntervalMs: 120, maxConcurrency: 1 })
     const starts: number[] = []
     const task = async () => {
       starts.push(Date.now())
