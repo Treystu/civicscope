@@ -21,11 +21,13 @@ workbench draft and says so in its own header; two rows of that pass - the
 Durable Object claim and the unreachable personal-key path - are closed below
 rather than carried forward.
 
-**Status: verified against this tree's code and configuration. Owner sign-off
-outstanding.** The text is owner-reserved, and the criterion also asks for the
-check to run against the deployed configuration; production does not serve the
-layer yet, so the deployed half of the check cannot be completed here. What is
-recorded is the evidence a sign-off would need.
+**Status: verified against this tree's code and configuration, and against the
+headers the live deployment actually serves. Owner sign-off outstanding.** The text is
+owner-reserved. The deployed-configuration half is now checked directly rather than
+inferred: the live build's CSP and permissions policy match `public/_headers` on every
+value this text relies on. What cannot be checked from here is the layer's behaviour on
+a deployment that carries it, because the current deployment predates the handoff
+surface. What is recorded is the evidence a sign-off would need.
 
 ## Configuration inspected
 
@@ -41,6 +43,7 @@ recorded is the evidence a sign-off would need.
 | Personal-key surface | Mounted on the Ask view as a "Use your own Meta key instead" disclosure, with a probe that spends one small direct intent call to check the key before it is stored | `src/ui/App.tsx`, `src/ui/ai/ByoSettings.tsx` |
 | Voice | Route shell exists and is inert: no caller, no provider call, no microphone UI, `microphone=()` in the permissions policy | `functions/api/muse/transcribe.ts`, `public/_headers` |
 | CSP / permissions | `connect-src` includes `https://api.meta.ai`; `microphone=()` | `public/_headers` |
+| CSP / permissions, **as served** | Identical to `public/_headers`: `script-src 'self'` with no `unsafe-inline`/`unsafe-eval`, the same ten-origin `connect-src`, `frame-ancestors 'none'`, `permissions-policy: geolocation=(), microphone=(), camera=(), payment=(), usb=(), interest-cohort=()`, `x-frame-options: DENY`, HSTS | `curl -D -` against `https://submission.civicscope.pages.dev`, 2026-11-14 13:28Z |
 | Logging | No `console.*` calls in `functions/` or `src/server/` | `grep` |
 | Secrets in Pages | Zero in production and preview, measured 2026-10-30 | `wrangler pages secret list`, recorded on #55/#56 |
 
@@ -68,9 +71,17 @@ recorded is the evidence a sign-off would need.
 
 1. **Owner sign-off.** The text is owner-reserved; nothing in this pass can
    substitute for that approval.
-2. **The deployed half of the criterion.** Re-run this checklist against the
-   production deployment once the layer is on production - the inspected
-   deployment today is a preview, and production serves `main` without the layer.
+2. **The deployed half of the criterion**, which is now two halves rather than one.
+   - *Configuration.* Done, 2026-11-14: the headers the live deployment actually
+     serves match `public/_headers` line for line on every value this text relies on -
+     `script-src 'self'` with no `unsafe-inline` or `unsafe-eval`, the same ten-origin
+     `connect-src`, `frame-ancestors 'none'`, and `permissions-policy` closing
+     `microphone=()` and `camera=()`. So the claims about what the deployment permits are
+     checked against the deployment, not the repository.
+   - *Behaviour of the layer on that deployment.* Not done, and not doable from here:
+     the deployment predates `src/ui/ai/agent-handoff.tsx` and the Muse surface it hosts,
+     so running the layer's own flows against it would test a build nobody ships. That
+     half waits for the layer to be deployed.
 3. **Nothing else outstanding in the text.** Both defects the earlier pass
    raised - the Durable Object claim and the unreachable personal-key path - are
    closed: the first was corrected in the text, the second was fixed in the
@@ -79,7 +90,9 @@ recorded is the evidence a sign-off would need.
 ## What this checklist does not prove
 
 - It does not verify a signed-off text, because sign-off is the owner's.
-- It does not verify production, which does not serve the layer yet.
+- It does not verify the layer's behaviour on production, which does not serve the layer
+  yet. It does verify the deployed *configuration* - the headers the live build serves -
+  because those are observable without the layer being there.
 - It does not prove the absence of all logging in platform telemetry. It checks
   this repository's code and configuration; platform-level retention is outside
   what the repo can assert.
