@@ -1,7 +1,9 @@
 # Agent onboarding — run record (F5a)
 
 This file is the record artefact for the agent-onboarding workflow
-(`workflow.v1.json`, plan §6.2.5 / §6.5.4). A feature claim for agent
+(`workflow.v1.json`, plan §6.2.5 / §6.5.4). The executable form of the run, written
+for someone who has not read this file, is `docs/agent-onboarding/checklist.md`.
+ A feature claim for agent
 onboarding exists only when a completed independent run is recorded
 here. Nothing in this file may be filled in by the workflow's author.
 
