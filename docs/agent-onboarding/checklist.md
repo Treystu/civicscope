@@ -30,10 +30,26 @@ the owner, ask once which option applies and stop.
 
 Expected: nothing to run yet; this step is a checklist of things you have.
 
-## Step 2 — preflight, four paste-able checks
+## Step 2 — preflight, five paste-able checks
 
 Run these exactly. The expected values were measured on 2026-11-14; a different
 value is a finding, not a failure of yours.
+
+0. **Does the deployment even carry the surface this run tests?** This costs one
+   command and saves you a mailbox signup that cannot succeed.
+
+   ```
+   curl -s https://submission.civicscope.pages.dev | grep -o '/assets/[^"]*\.js' | while read a; do curl -s "https://submission.civicscope.pages.dev$a" | grep -c "Set up with your agent"; done
+   ```
+
+   Expected: `1` (or more). **Measured 2026-11-14: `0` on every asset of the
+   live deployment.** The handoff component exists on `lane/submission` only - it was
+   added at `a5dd37e` and is absent from `main` and from `contest/house-port` -
+   so the deployed portal predates it. If you get `0`, stop here and report it:
+   the run needs a deployment built from a head that contains
+   `src/ui/ai/agent-handoff.tsx`, which means #66 landing and a deploy, and
+   neither is yours to do. Steps 1-6 are still worth reading for what the run will
+   test; they cannot be executed against the current deployment.
 
 1. The app answers:
 
@@ -41,11 +57,13 @@ value is a finding, not a failure of yours.
    curl -s -o /dev/null -w "%{http_code}\n" https://submission.civicscope.pages.dev
    ```
 
-   Expected: `200`. (Measured: 200 in 0.85s. The pinned deployment
-   `https://390579ff.civicscope.pages.dev` also answers 200.)
+   Expected: `200`. (Measured 2026-11-14: 200 in 0.61s. The pinned deployment
+   `https://390579ff.civicscope.pages.dev` also answers 200, in 0.53s.)
 
 2. Open `https://submission.civicscope.pages.dev/#agent-handoff` and look for the
-   heading **Set up with your agent**.
+   heading **Set up with your agent**. (Step 0 above is what makes this check
+   meaningful: on the deployment measured 2026-11-14 the heading is not there at
+   all, because the bundle predates the component.)
 
    Expected: the section is present, and one paragraph says a key is stored only in
    this browser's localStorage, on this origin, with no CivicScope server for user
@@ -152,8 +170,9 @@ this lane cannot validate.
 | --- | --- |
 | 0. Owner gate | **The only owner decision.** Nothing below needs a ruling |
 | 1. Prerequisites | Instructions only |
-| 2.1 Origin answers | Validated 2026-11-14: 200 on both origins |
-| 2.2 Handoff section and origin sentence | Validated in the shipped component (`src/ui/ai/agent-handoff.tsx`) |
+| 2.0 Surface present in the deployment | **Measured absent, 2026-11-14**: the live bundle carries `civicscope:census-key` but not the handoff heading, and `src/ui/ai/agent-handoff.tsx` exists only on `lane/submission` (`a5dd37e`), not on `main` or `contest/house-port`. The run is therefore **blocked on a deploy**, not on this document |
+| 2.1 Origin answers | Validated 2026-11-14: 200 on both origins, 0.61s and 0.53s |
+| 2.2 Handoff section and origin sentence | Validated in the shipped component (`src/ui/ai/agent-handoff.tsx`), **not** on the live deployment |
 | 2.3 Cleared-state strings | Validated: both literals ship in the component |
 | 2.4 Event names and detail shapes | Validated: `civicscope:census-key` ships as a plain event; `civicscope:meta-key-changed` ships as a custom event with `{present}` |
 | 3.1 Signup URL | Validated as the constant the app uses; the live page is external |

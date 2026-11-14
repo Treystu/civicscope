@@ -23,6 +23,25 @@ GATE FAILED
 Every deterministic check in that console passes. The failure is the semantic
 criterion alone, and `clause_7` is its largest single contributor below 0.9.
 
+### The packet's reading has been refreshed, and the argument does not move with it
+
+Re-measured at `75f1573`, completion-gate job 260, workflow `e7e9dd9f`:
+
+```
+Deterministic  101/101
+  requirements_met (scored) = 0.896 (14/14 clauses)
+  clause_7: noul=0.53
+Overall: 79.6/100  (semantic criterion (99): NOT MET)
+GATE FAILED
+```
+
+Across the heads this lane has produced, `clause_7` has read 0.51, 0.52, 0.53, 0.55
+and 0.56 and the overall semantic number has read 78.1 to 79.6. That movement is the
+judge re-reading the same evidence, not the dossier changing: no session commit
+alters the clause text, the evidence record's scope, or `/api/muse/*`. The figures
+above are the ones to quote; the `5b57d08` block is kept because it is the reading the
+analysis was written against.
+
 ## The frozen clause text
 
 `tools/completion-gate.mjs:1189`:

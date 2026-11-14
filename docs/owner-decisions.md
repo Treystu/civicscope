@@ -84,6 +84,19 @@ Issue #59. Artefact: `docs/agent-onboarding/workflow.v1.json` v1.0.1. Record:
 - written for a runner who has never read the campaign, with the measured expected
 value on every line and step 0 labelled as this decision.
 
+**One dependency the run cannot work around, measured 2026-11-14:** the deployed
+portal does not carry the surface the run tests. Its live bundle contains
+`civicscope:census-key` but not the handoff heading, and `src/ui/ai/agent-handoff.tsx`
+exists only on `lane/submission` (added `a5dd37e`) - it is absent from `main` and from
+`contest/house-port`. So option A is not "run it now": it is "land #66, deploy, then
+run it", and both halves of that are owner acts. The checklist now opens with a
+one-command check for this, so a non-author does not spend a mailbox signup finding it
+out at screen one. Choose A knowing the sequence, or choose B and the sequence goes
+away.
+
+This does not change the lane's recommendation: the artefacts are complete and the
+protocol is executable; what is missing is a deployment, not a document.
+
 Everything an agent can do is done: versioned artefact with both key paths and
 defined goto semantics, an in-app handoff that confirms setup only through the
 app's own key events, 14 abort/handoff cases in the default suite, and a recorded
