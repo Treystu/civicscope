@@ -27,7 +27,8 @@ function readKey(): string | null {
     const path = join(homedir(), '.config', 'harness', 'jev.env')
     for (const line of readFileSync(path, 'utf8').split(/\r?\n/)) {
       const m = /^\s*(TYPESAFE_API_KEY|HARNESS_JEV_KEY)\s*=\s*(.*)\s*$/.exec(line)
-      if (m) return m[2].trim()
+      const value = m?.[2]
+      if (value) return value.trim()
     }
   } catch {
     return null
