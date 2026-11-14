@@ -36,9 +36,10 @@ GATE FAILED
 ```
 
 Across the heads this lane has produced, `clause_7` has read 0.51, 0.52, 0.53, 0.55
-and 0.56 and the overall semantic number has read **77.9 to 79.6**. The figures above
-are the ones to quote; the `5b57d08` block is kept because it is the reading the
-analysis was written against.
+and 0.56, and the overall semantic number has read **77.9 to 79.8** - treat any single
+reading as the middle of a band about 1.9 points wide, not as a fixed score. The latest
+reading at the time of writing is 79.7 (job 266, `875dabb`). The `5b57d08` block is kept
+because it is the reading the analysis was written against.
 
 **The variance is the finding, not noise to average away.** Between `75f1573` and
 `b02d103` the only change was documentation - the checklist preflight and this packet's
