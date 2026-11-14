@@ -67,7 +67,10 @@ import {
   type MapMetricKey,
 } from '../core/map/scale'
 import type { AreaRow } from '../core/plugins/acs'
+import type { MuseProvider } from '../core/ai/provider'
 import { FairHousingNotice } from './FairHousingNotice'
+import { ExplainAction } from './ai/ExplainAction'
+import { figureInputsFromAreaRows } from './ai/figure-input'
 import { useMapCanvasInteractions, useMapViewport } from './map-interactions'
 
 interface Props {
@@ -77,9 +80,10 @@ interface Props {
   onSelect: (zctas: string[]) => void
   /** Areas already in the comparison set, outlined on the map. */
   selectedZctas: readonly string[]
+  explainProvider?: MuseProvider
 }
 
-export function MapView({ rows, loading, onSelect, selectedZctas }: Props) {
+export function MapView({ rows, loading, onSelect, selectedZctas, explainProvider }: Props) {
   const headingId = useId()
   const legendId = useId()
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -523,6 +527,17 @@ export function MapView({ rows, loading, onSelect, selectedZctas }: Props) {
           Alaska, Hawaii and Puerto Rico are drawn as insets.
         </p>
       </div>
+
+      {explainProvider && selectedZctas.length > 0 && (
+        <div className="mt-3">
+          <ExplainAction
+            title="the selected map figures"
+            figureSetId="map-selection"
+            figures={figureInputsFromAreaRows(rows, selectedZctas, [metric])}
+            provider={explainProvider}
+          />
+        </div>
+      )}
 
       <p className="sr-only" role="status" aria-live="polite">
         {summary}

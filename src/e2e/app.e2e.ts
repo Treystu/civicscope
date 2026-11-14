@@ -28,7 +28,7 @@ let page: Page
 
 async function searchFor(zip: string) {
   await page.fill('#place', zip)
-  await page.click('button[type="submit"]')
+  await page.locator('form').filter({ has: page.locator('#place') }).locator('button[type="submit"]').click()
 }
 
 beforeAll(async () => {
@@ -192,7 +192,7 @@ describe('e2e: keyless ZIP guidance', () => {
       expect(await guidanceText.innerText()).not.toContain('Add a ZIP code above')
 
       await keylessPage.fill('#place', '35950')
-      await keylessPage.click('button[type="submit"]')
+      await keylessPage.locator('form').filter({ has: keylessPage.locator('#place') }).locator('button[type="submit"]').click()
       await keylessPage.getByRole('heading', { name: 'Comparing 1 area', exact: true }).waitFor({ timeout: 60000 })
       await Promise.race([
         firstOutcomeStarted,
@@ -200,7 +200,7 @@ describe('e2e: keyless ZIP guidance', () => {
       ])
 
       await keylessPage.fill('#place', '35203')
-      await keylessPage.click('button[type="submit"]')
+      await keylessPage.locator('form').filter({ has: keylessPage.locator('#place') }).locator('button[type="submit"]').click()
       await keylessPage.getByRole('heading', { name: 'Comparing 2 areas', exact: true }).waitFor({ timeout: 60000 })
       await Promise.race([
         secondOutcomeStarted,
@@ -242,8 +242,8 @@ describe('e2e: keyless ZIP guidance', () => {
   }, 120000)
 })
 
-describe('e2e: deterministic screening sort', () => {
-  it('keeps ZIP order by default, sorts locally, and renders Similarity matches without metric values', async () => {
+describe('e2e: deterministic screening and explain surfaces', () => {
+  it('keeps ZIP order, renders Explain on the loaded views, and keeps the stub path offline', async () => {
     const context = await browser.newContext()
     const fixtureRows = [
       { zcta: '10003', rent: '2400' },
@@ -317,6 +317,10 @@ describe('e2e: deterministic screening sort', () => {
       const sortPresets = sortPage.locator('fieldset').first()
       await sortPresets.getByText('Median rent', { exact: true }).click()
       expect(await sortPresets.getByRole('radio', { name: 'Median rent' }).isChecked()).toBe(true)
+
+      expect(await table.getByRole('button', { name: "Explain this row's figures" }).count()).toBe(3)
+      const actionRowHeight = await table.locator('tbody tr').first().evaluate((row) => row.getBoundingClientRect().height)
+      expect(actionRowHeight).toBe(53)
       expect(await readZipOrder()).toEqual(['10002', '10001', '10003'])
 
       const rentHeader = table.getByRole('columnheader', { name: 'Median rent' })
@@ -344,7 +348,41 @@ describe('e2e: deterministic screening sort', () => {
         expect(await labels.nth(0).innerText()).toBe(['10001', '10003'][index])
         expect(await labels.nth(1).innerText()).toBe(['distance 0.25', 'distance 0.50'][index])
         expect(await row.getByRole('button', { name: 'Compare' }).count()).toBe(1)
+        expect(await row.getByRole('button', { name: /^Explain \d{5}$/ }).count()).toBe(1)
       }
+
+      await resultRows[0]!.getByRole('button', { name: /^Explain \d{5}$/ }).click()
+      await similarity.getByRole('button', { name: 'Explain this similarity result' }).waitFor()
+
+      // A row action and the shared comparison action both consume the same
+      // locally loaded figures; the default provider remains a safe empty stub.
+      await table.locator('tbody tr').filter({ hasText: '10002' }).getByRole('button', { name: 'Compare' }).click()
+      const detail = sortPage.locator('main article').filter({ hasText: '10002' }).first()
+      await detail.getByRole('button', { name: "Explain this area's figures" }).waitFor()
+
+      await sortPage.getByRole('button', { name: 'Explore', exact: true }).click()
+      await sortPage.getByRole('textbox', { name: 'Ask in plain language' }).fill('rent in 10002')
+      await sortPage.getByRole('button', { name: 'Ask', exact: true }).click()
+      await sortPage.getByLabel('Add a place').fill('10002')
+      await sortPage.getByRole('button', { name: 'Add place' }).click()
+      await sortPage.getByLabel('Add a measure').selectOption('median_gross_rent')
+      await sortPage.getByRole('button', { name: 'Add measure' }).click()
+      const askExplain = sortPage.getByRole('button', { name: 'Explain these figures' })
+      await askExplain.waitFor()
+      await askExplain.click()
+      await sortPage.getByText('The wording helper returned no explanation.').waitFor()
+
+      await sortPage.getByLabel('Name for this comparison').fill('Fixture shortlist')
+      await sortPage.getByRole('button', { name: 'Save', exact: true }).click()
+      await sortPage.getByRole('button', { name: 'Explain this saved comparison' }).waitFor()
+
+      await table.locator('tbody tr').filter({ hasText: '10001' }).getByRole('button', { name: 'Compare' }).click()
+      await sortPage.getByRole('button', { name: 'Explain the shared figures' }).waitFor()
+
+      const providerRequests = await sortPage.evaluate(() => performance.getEntriesByType('resource')
+        .map((entry) => entry.name)
+        .filter((name) => name.includes('/api/muse/')))
+      expect(providerRequests).toEqual([])
     } finally {
       await context.close()
     }

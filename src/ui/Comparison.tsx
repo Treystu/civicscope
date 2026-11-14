@@ -3,6 +3,9 @@ import { MetricCard } from './MetricCard'
 import { CompositeCard } from './CompositeCard'
 import type { DrillState } from '../core/useHousingQuery'
 import { comparableMetricRows } from '../core/comparison'
+import { MAX_EXPLAIN_VALUES, type MuseProvider } from '../core/ai/provider'
+import { ExplainAction } from './ai/ExplainAction'
+import { figureInputFromMetric, figureInputsFromMetrics } from './ai/figure-input'
 
 /**
  * Side-by-side comparison of the areas the user selected.
@@ -16,21 +19,49 @@ export function Comparison({
   drilldowns,
   onDeselect,
   placeLabel,
+  explainProvider,
 }: {
   drilldowns: Record<string, DrillState>
   onDeselect: (zcta: string) => void
+  explainProvider?: MuseProvider
   /** `"Austin, TX"` for a ZIP code, or null when the mapping is unavailable. */
   placeLabel?: (zip: string) => string | null
 }) {
   const entries = Object.values(drilldowns)
   if (entries.length === 0) return null
   const comparableRows = comparableMetricRows(entries)
+  const rowsPerComparison = Math.max(1, Math.floor(MAX_EXPLAIN_VALUES / entries.length))
+  const explainRows = comparableRows.slice(0, rowsPerComparison)
+  const comparisonFigures = explainRows.flatMap((row) =>
+    row.values.flatMap((metric, index) => {
+      const area = entries[index]
+      const figure = figureInputFromMetric(metric, area ? [area.zcta, area.label] : [])
+      return figure ? [figure] : []
+    }),
+  )
 
   return (
     <section aria-labelledby="comparison-heading" className="mt-8">
       <h2 id="comparison-heading" className="section-title">
         Comparing {entries.length} {entries.length === 1 ? 'area' : 'areas'}
       </h2>
+
+      {explainProvider && entries.length > 1 && (
+        <div className="mt-2">
+          {explainRows.length < comparableRows.length && (
+            <p className="text-xs text-slate-600">
+              This explanation uses the first {explainRows.length} shared figures so each selected area fits the
+              24-value request limit.
+            </p>
+          )}
+          <ExplainAction
+            title="the shared figures"
+            figureSetId="comparison"
+            figures={comparisonFigures}
+            provider={explainProvider}
+          />
+        </div>
+      )}
 
       <div className="mt-3 space-y-4">
         {entries.length > 1 && comparableRows.length > 0 && (
@@ -135,6 +166,17 @@ export function Comparison({
                 Remove
               </button>
             </div>
+
+            {explainProvider && (
+              <div className="mt-3">
+                <ExplainAction
+                  title="this area's figures"
+                  figureSetId="drilldown"
+                  figures={figureInputsFromMetrics(d.metrics, [d.zcta, d.label])}
+                  provider={explainProvider}
+                />
+              </div>
+            )}
 
             {d.composites.some((c) => c.score !== null) && (
               <div className="mt-4 grid gap-3 sm:grid-cols-2">

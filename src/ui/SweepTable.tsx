@@ -20,30 +20,32 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import type { AreaRow } from '../core/plugins/acs'
+import type { MuseProvider } from '../core/ai/provider'
 import type { AbsentReason, MetricUnit } from '../core/types'
 import { isSortableMetricKey, type SortableMetricKey } from '../core/sortable-surface'
 import { downloadCsv, toCsv } from '../core/export'
 import { absenceLabel, formatMetricNumber, isMetricDisplayable } from './metric-format'
+import { ExplainAction } from './ai/ExplainAction'
+import { figureInputsFromAreaRow } from './ai/figure-input'
 
 
 /**
  * A row's height in pixels, used to size the window.
  *
- * 46 rather than the 36 this was when a row held only a ZIP code. Each row now
- * carries the city beneath the code, so a row is two lines of text plus padding.
+ * Rows now measure 53px in the browser: the 44px Explain target sits beside the
+ * two-line ZIP/place label, whose cell padding determines the remaining height.
  * The window is arithmetic on this number — the scroll offset divided by it gives
- * the first visible row — so understating it does not merely look wrong, it
- * scrolls the wrong rows into view. Measured in the browser rather than
- * calculated from the font size.
+ * the first visible row — so understating it makes scrolling skip rows. Re-measure
+ * this when the row contents or target sizes change; do not estimate from font size.
  */
-const ROW_HEIGHT = 46
+const ROW_HEIGHT = 53
 /** Rows rendered above and below the viewport, so a fast scroll shows nothing blank. */
 const OVERSCAN = 8
 /**
  * How many rows to render per screen height.
  *
- * 30 rather than 60, because the container is 560px tall and a row is now 46px:
- * 30 rows is still roughly four screens of scroll, which is what the overscan
+ * 30 rather than 60, because the container is 560px tall and a row is now 53px:
+ * 30 rows is about three screens of scroll, which is what the overscan
  * exists to cover.
  */
 const WINDOW_SIZE = 30
@@ -115,6 +117,7 @@ export function SweepTable({
   sortKey,
   ascending,
   placeLabel,
+  explainProvider,
 }: {
   rows: AreaRow[]
   onAdd: (zcta: string) => void
@@ -130,6 +133,7 @@ export function SweepTable({
    * yet imported" about a figure that is simply not part of the ACS row.
    */
   placeLabel?: (zip: string) => string | null
+  explainProvider?: MuseProvider
   visibleCount?: number
   totalCount?: number
   onShowMore?: () => void
@@ -294,15 +298,26 @@ export function SweepTable({
                       </td>
                     )
                   })}
-                  <td className="px-3 py-1.5 text-right">
-                    <button
-                      type="button"
-                      onClick={() => onAdd(r.zcta)}
-                      disabled={isSelected}
-                      className="rounded border border-slate-300 px-2 py-0.5 text-xs hover:bg-slate-100 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-700"
-                    >
-                      {isSelected ? 'Added' : 'Compare'}
-                    </button>
+                  {/* Keep the 44px target inside the 46px measured virtual row; vertical padding here would make scrolling drift. */}
+                  <td className="px-3 py-0 text-right">
+                    <div className="flex items-center justify-end gap-1 whitespace-nowrap">
+                      {explainProvider && (
+                        <ExplainAction
+                          title="this row's figures"
+                          figureSetId="sweep"
+                          figures={figureInputsFromAreaRow(r)}
+                          provider={explainProvider}
+                        />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => onAdd(r.zcta)}
+                        disabled={isSelected}
+                        className="rounded border border-slate-300 px-2 py-0.5 text-xs hover:bg-slate-100 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-700"
+                      >
+                        {isSelected ? 'Added' : 'Compare'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               )

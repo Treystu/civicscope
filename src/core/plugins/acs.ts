@@ -1,4 +1,10 @@
 /**
+ * PRE-EXISTING (contest port, issue #33): the metric registry in this file
+ * (METRIC_DEFS, 15 keys) is pre-existing CivicScope code, not contest-built.
+ * Source: Sovereign-Communication/civicscope at 3aa7e10dc59e764a8636aa273d4ff86714a3e782.
+ * See docs/contest-port-manifest.md.
+ */
+/**
  * ACS 5-year housing data, with two access shapes.
  *
  * Every table ID below was verified against the live Census variables API, and

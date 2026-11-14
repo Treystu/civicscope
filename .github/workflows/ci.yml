@@ -2,9 +2,9 @@ name: ci
 
 on:
   push:
-    branches: [main]
+    branches: [main, contest/house-port]
   pull_request:
-    branches: [main]
+    branches: [main, contest/house-port]
 
 # Least privilege: this workflow only needs to read the repo and open a status
 # check. It holds no secrets and never deploys.

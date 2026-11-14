@@ -1,4 +1,11 @@
 /**
+ * PRE-EXISTING (contest port, issue #33): the sortable surface in this file
+ * (SORTABLE_METRIC_KEYS, 5 keys) is pre-existing CivicScope code, not
+ * contest-built.
+ * Source: Sovereign-Communication/civicscope at 3aa7e10dc59e764a8636aa273d4ff86714a3e782.
+ * See docs/contest-port-manifest.md.
+ */
+/**
  * Which metrics may ever drive a sort, a filter or a ranking weight.
  *
  * `src/core/types.ts` defines the rule this module enforces:

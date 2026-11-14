@@ -21,6 +21,7 @@
  * instead of throwing.
  */
 import { useState } from 'react'
+import type { MuseProvider } from '../core/ai/provider'
 
 import {
   isFull,
@@ -29,16 +30,22 @@ import {
   deleteSearch,
   type SavedSearch,
 } from '../core/saved-searches'
+import { ExplainAction } from './ai/ExplainAction'
+import type { FigureInput } from './ai/FigureCard'
 
 const num = new Intl.NumberFormat('en-US')
 
 export function SavedSearches({
   selectedZctas,
   onRestore,
+  explainProvider,
+  figuresForSaved,
 }: {
   selectedZctas: readonly string[]
   /** Adds every ZIP code in a saved comparison to the current one. */
   onRestore: (zips: readonly string[]) => void
+  explainProvider?: MuseProvider
+  figuresForSaved?: (zips: readonly string[]) => readonly FigureInput[]
 }) {
   const [list, setList] = useState<SavedSearch[]>(() => readSaved())
   const [name, setName] = useState('')
@@ -125,6 +132,14 @@ export function SavedSearches({
                 </span>
               </div>
               <div className="flex gap-2">
+                {explainProvider && figuresForSaved && (
+                  <ExplainAction
+                    title="this saved comparison"
+                    figureSetId="saved-view"
+                    figures={figuresForSaved(entry.zips)}
+                    provider={explainProvider}
+                  />
+                )}
                 <button
                   type="button"
                   onClick={() => onRestore(entry.zips)}

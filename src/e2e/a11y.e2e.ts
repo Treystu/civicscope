@@ -158,7 +158,7 @@ describe('accessibility requirements axe cannot check', () => {
     if (!process.env.CENSUS_KEY) return
     await gotoExplore()
     await page.fill('#place', '78701')
-    await page.click('button[type="submit"]')
+    await page.locator('form').filter({ has: page.locator('#place') }).locator('button[type="submit"]').click()
     // Waits on the drilldown card, which is a separate fast request. The
     // country-wide sweep runs concurrently and takes far longer, so waiting on
     // it here would time out for reasons unrelated to this assertion.
