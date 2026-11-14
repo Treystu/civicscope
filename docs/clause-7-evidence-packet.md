@@ -36,11 +36,21 @@ GATE FAILED
 ```
 
 Across the heads this lane has produced, `clause_7` has read 0.51, 0.52, 0.53, 0.55
-and 0.56 and the overall semantic number has read 78.1 to 79.6. That movement is the
-judge re-reading the same evidence, not the dossier changing: no session commit
-alters the clause text, the evidence record's scope, or `/api/muse/*`. The figures
-above are the ones to quote; the `5b57d08` block is kept because it is the reading the
+and 0.56 and the overall semantic number has read **77.9 to 79.6**. The figures above
+are the ones to quote; the `5b57d08` block is kept because it is the reading the
 analysis was written against.
+
+**The variance is the finding, not noise to average away.** Between `75f1573` and
+`b02d103` the only change was documentation - the checklist preflight and this packet's
+own refresh - and the semantic number moved 79.6 to 77.9 while the deterministic layer
+stayed 101/101 and `requirements_met` stayed 0.896. Nothing in the product changed, and
+no clause's evidence changed. That is a judge re-reading a dossier, and it puts roughly
+a 1.7-point band on any single reading, which is more than the gap between most of the
+options anyone might propose.
+
+It also means the number cannot be managed by editing text: pushing it toward 99 would
+require a dossier rewrite whose effect the judge has just shown it can undo on an
+unrelated push. The clause text is the stable thing to rule on; the score is not.
 
 ## The frozen clause text
 
