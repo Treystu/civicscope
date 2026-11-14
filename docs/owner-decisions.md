@@ -13,12 +13,14 @@ instrument, and two are sign-offs on somebody else's work.
 
 ## The state these decisions sit on
 
-Rail at `bde7f20`, the head this sheet was written against: `verify` 235 success,
-`live-contracts` 236 success, `completion-gate` deterministic 101/101 with all
-four stages passing, semantic 78.7 against the instrument's frozen 99, `GATE
-FAILED` on the semantic criterion alone. Across the six heads from the branch
-point the semantic layer has read 78.1, 78.5, 78.7, 79.3, 78.8, 79.8 — never
-once above the threshold.
+The rail reading this sheet sits on is deliberately stated as a band, not a number:
+`completion-gate` passes its deterministic layer 101/101 with all four stages at
+every head the lane has produced, and fails only the frozen semantic criterion,
+which has read between 78.1 and 79.8 across those heads and never once above 99.
+Naming one head's figure here would make this line stale on the next push, so each
+head's exact verdict lives in the ledger's STATUS under that SHA. The last stand-up
+line (`verify` success, `live-contracts` success, deterministic 101/101) is the
+shape every reading has had.
 
 ## 1. clause_7 wording — decides whether the gate can ever be green
 
@@ -78,7 +80,9 @@ the deployed-config half depends on decision 2.
 ## 4. Agent onboarding — decides whether #59 closes
 
 Issue #59. Artefact: `docs/agent-onboarding/workflow.v1.json` v1.0.1. Record:
-`docs/agent-onboarding/run-record.md`.
+`docs/agent-onboarding/run-record.md`. Executable steps: `docs/agent-onboarding/checklist.md`
+- written for a runner who has never read the campaign, with the measured expected
+value on every line and step 0 labelled as this decision.
 
 Everything an agent can do is done: versioned artefact with both key paths and
 defined goto semantics, an in-app handoff that confirms setup only through the
@@ -116,6 +120,34 @@ PR #32 sits on owner HOLD at `d303e04`, last touched 2026-10-26. The lane has no
 read it, reviewed it, or pushed to it. Lifting the hold is entirely yours; there is
 no lane-side prep that would make it faster, and the lane has deliberately not
 touched it to keep it reviewable as it stands.
+
+## 7. Asthma on the country-wide screen — the only piece of item 6 still open
+
+Item 6's lane half is closed: the asthma measure is bound in the shipping PLACES
+plugin (drilldown, population-weighted, protected-class stamped, never sortable or
+filterable) and the tenant-share key disagreement is cured. What remains is not a
+defect but a design call.
+
+Asthma today appears only in a ZIP's drilldown. Putting it on the country-wide
+screening screen would mean:
+
+- it becomes a visible column on the primary surface, where every other column is
+a housing measure;
+- the screen's request contract changes - the screen is pinned to 20 variables and
+the chunk plan that follows from it, and a PLACES measure is a different source
+with a different cadence (a 2023-vintage model, not the Census vintage beside it);
+- a health prevalence sits next to rent and income as if it were comparable, which
+is the shape of claim the fair-housing notice exists to prevent.
+
+- **Option A, keep it in the drilldown.** Nothing changes; the figure remains
+available on demand with its interval and its notice.
+- **Option B, add it to the screen.** The lane implements it, measures the new
+request contract, and states the vintage mismatch beside the column.
+
+The lane does not recommend B, because the comparability risk is real and the
+benefit is a column nobody has asked for. It also cannot take B unasked: it changes
+the screen's contract, which is the one surface the gate's request-size check
+guards.
 
 ## What does not need a decision
 
