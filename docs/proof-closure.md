@@ -22,6 +22,13 @@ the evidence record toward 99.
 | `f527040` | 275 | 101/101 |
 | `f3707e5` | 278 | 101/101 |
 | `06a1f41` | 282 | 101/101 |
+| `66dc772` | 286 | 101/101 |
+
+Two runs in the window are recorded rather than smoothed over. `17be735` (live-contracts
+284) failed because the CDC PLACES probe hit a ten-second connect timeout against
+`data.cdc.gov` on a docs-only head; the probe now retries three times with a per-attempt
+timeout, so a stalled tunnel fails only if it persists, and the next head passed. That
+is a live third party, not the build.
 
 One run in the window read 99/101 - `7a64481`, job 272 - and it is recorded here rather
 than omitted: the WCAG audit's `url-state` fixture read a comparison card between the

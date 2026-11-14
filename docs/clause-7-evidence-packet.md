@@ -60,6 +60,7 @@ at 99, with `requirements_met` the arithmetic mean of the fourteen clause verdic
 | `310f05f` | 270 | 101/101 | 0.908 | **0.61** | 79.5 |
 | `f3707e5` | 278 | 101/101 | 0.885 | **0.45** | 78.0 |
 | `06a1f41` | 282 | 101/101 | 0.896 | 0.53 | 78.6 |
+| `66dc772` | 286 | 101/101 | 0.905 | 0.59 | 79.7 |
 
 Three further runs today, keyed the same way:
 
@@ -69,11 +70,15 @@ Three further runs today, keyed the same way:
 | `7a64481` | 272 | **99/101** | 0.53 | 61.2 | **excluded**: a browser fixture read a card between two paints (see below), so the deterministic failure fed the semantic score and the run is not comparable |
 | `f527040` | 275 | 101/101 | 0.54 | 78.8 | the same tree as 272, re-run to identify the flake |
 
-**Nine gate runs today, every one keyed to its job number; eight of them at
-deterministic 101/101 and comparable. Across those eight: `clause_7` 0.45 to 0.61,
-overall 77.9 to 79.7.** An earlier head in the day read 79.8, which is inside the
-same window; it is quoted without a job number because this packet only keys figures
-it can point at.
+**Ten gate runs today, every one keyed to its job number; nine of them at deterministic
+101/101 and comparable. Across those nine: `clause_7` 0.45 to 0.61, overall 77.9 to
+79.7.** An earlier head in the day read 79.8, inside the same window; it is quoted
+without a job number because this packet only keys figures it can point at, and one run
+whose live tier hit a network timeout is excluded and named below rather than dropped.
+
+This packet is frozen at `66dc772` for the ruling. If the lane lands anything else
+before the answer, the newest reading belongs in the ledger's STATUS under that head,
+not in a new edition of this file - the question does not change with the number.
 
 The bands are the finding, not noise to average away. Between `310f05f` and `f3707e5`
 `clause_7` fell from 0.61 to 0.45 - sixteen hundredths - while the clause text, the
