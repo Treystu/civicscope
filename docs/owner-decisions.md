@@ -101,10 +101,22 @@ for the Census key.
 
 Issue #31. Eight refs under `archive/20261021/branch/*`.
 
-Skimmed line by line: no ref holds content absent from `main`. `saved-ordering-fix`
-adds nothing main lacks; the rest differ only in files deliberately rewritten in
-`main`; the one ref where loss looked plausible turned out to be superseded
-planning docs under newer dates and an e2e test that survives renamed.
+Skimmed line by line, then checked mechanically, because a skim is exactly the
+review that misses one line and `git` does not undo a deleted ref:
+
+- `git cherry origin/main <ref>` reports 7 of the 13 unique commits with no
+  patch-equivalent on `main` - but that is an artefact of squash merges, not
+  evidence of loss: a squashed commit has a different patch-id from its parts.
+- So each of those 7 was checked by content instead: its longest added lines were
+  grepped against `main`'s tree. 37 of 40 present verbatim, and the three that were
+  not are present under variant wording - `per_pupil_spend`/`'usd'` guards at
+  `tools/completion-gate.mjs:353,357`, the `meanCommuteMinutes` label defect in
+  `docs/CHANGELOG.md:61`, and the `Schools Priority` panel guard at
+  `tools/completion-gate.mjs:487`.
+
+The result stands as before: no ref holds content absent from `main`, and the one
+ref where loss looked plausible held superseded planning docs and an e2e test that
+survives renamed.
 
 - **Option A, delete all eight.** The archive goes; the history is already in
   `main`.
