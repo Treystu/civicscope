@@ -32,12 +32,19 @@ export const JEV_MODEL = 'jev-latest'
 export const STAGE_GATE_THRESHOLD = 0.5
 
 export interface StageQuestion {
+  /**
+   * The provider's question kind. Measured 2026-11-14: omitting it makes the
+   * request 400 in milliseconds, so every stage question carries it and the
+   * seam's type makes it impossible to forget.
+   */
+  type: 'noul'
   instructions: string
   criteria: { true: string; false: string }
 }
 
 export const STAGE_QUESTIONS: Readonly<Record<StageGateStage, StageQuestion>> = {
   intent: {
+    type: 'noul',
     instructions:
       'Does the parsed intent express the question the reader actually asked, including its geography and its measure?',
     criteria: {
@@ -46,6 +53,7 @@ export const STAGE_QUESTIONS: Readonly<Record<StageGateStage, StageQuestion>> = 
     },
   },
   evidence: {
+    type: 'noul',
     instructions:
       'Does every claim in the draft follow from the evidence class claimed for it: census_measured backed by a screened row, research_named named by the research, model_knowledge labelled as the model own?',
     criteria: {
@@ -54,6 +62,7 @@ export const STAGE_QUESTIONS: Readonly<Record<StageGateStage, StageQuestion>> = 
     },
   },
   answer: {
+    type: 'noul',
     instructions:
       'Is the assembled answer complete against the question asked, with every gap stated rather than silently dropped?',
     criteria: {

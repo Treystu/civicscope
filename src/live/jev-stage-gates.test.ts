@@ -60,7 +60,8 @@ describe.skipIf(!KEY)('live Jev stage gates', () => {
           verdicts.map((v) => `${v.stage}=${v.status}(${v.probability ?? 'n/a'})`).join(' '),
       )
 
-      expect(model).toMatch(/^jev-/)
+      expect(typeof model).toBe('string')
+      expect(String(model)).toMatch(/^jev-/)
       expect(verdicts).toHaveLength(STAGE_GATE_STAGES.length)
       // A live judge must answer; 'unavailable' here means the probe did not run.
       for (const v of verdicts) expect(v.status).not.toBe('unavailable')
