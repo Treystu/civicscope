@@ -12,7 +12,7 @@ here. Nothing in this file may be filled in by the workflow's author.
 | Field | Value |
 |---|---|
 | Workflow artefact | `docs/agent-onboarding/workflow.v1.json` |
-| Workflow version | 1.0.0 |
+| Workflow version | 1.0.0 — the version the recorded run followed. The artefact in the tree is **1.0.1** (see Amendments); a clean-account runner follows 1.0.1, and 1.0.0 is kept here because that is what was actually exercised |
 | In-app entry point | "Set up with your agent" (`src/ui/ai/agent-handoff.tsx`) |
 | Paths covered | Census API key; personal Meta Model API key |
 | Success proof | The app's own re-validation events only: `civicscope:census-key`, `civicscope:meta-key-changed` |

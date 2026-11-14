@@ -42,7 +42,9 @@ value is a finding, not a failure of yours.
    curl -s https://submission.civicscope.pages.dev | grep -o '/assets/[^"]*\.js' | while read a; do curl -s "https://submission.civicscope.pages.dev$a" | grep -c "Set up with your agent"; done
    ```
 
-   Expected: `1` (or more). **Measured 2026-11-14: `0` on every asset of the
+   Expected: `1` (or more). `grep -c` exits with status 1 when its count is `0` - a
+   non-zero exit here is the measurement, not a broken command, so read the printed
+   number and ignore the status. **Measured 2026-11-14: `0` on every asset of the
    live deployment.** The handoff component exists on `lane/submission` only - it was
    added at `a5dd37e` and is absent from `main` and from `contest/house-port` -
    so the deployed portal predates it. If you get `0`, stop here and report it:
