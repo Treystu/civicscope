@@ -68,14 +68,18 @@ export function isDerivedKey(key: string): boolean {
  * Why this constant exists: `intent-schema.ts` keeps a closed set of derived
  * figure keys the validator will accept, and until 2026-11-14 that set named
  * `derived:renter_pct` while `deriveShare` named its output from whatever the
- * caller passed - the arithmetic suite passes `renter_share`. So the accepted
- * name was one no code emitted, and the name the arithmetic emits was one the
- * validator refused as unknown. A caller wiring the two together would have
- * produced a figure that failed validation for a reason with nothing to do with
- * the arithmetic. Both sides now read the name from here, and a test pins them
- * against each other.
+ * caller passed - the arithmetic suite passes `renter_share`. Nothing pinned the
+ * tenant share's name, so the accepted name was one no code emitted and the name
+ * callers used was one the validator refused as unknown.
+ *
+ * The name has to keep the `pct` in it: `validator.ts` classifies a figure as a
+ * percentage source with `isPercentKey` (`/pct|percent/i`), so a share renamed to
+ * `derived:renter_share` stops being a source for any percent claim and the
+ * validation fails for a reason that looks nothing like a naming problem. Caught
+ * by the rail, not by review: the rename cost two validator cases. The name now
+ * lives here, carries its unit, and is read by both sides.
  */
-export const RENTER_SHARE_NAME = 'renter_share'
+export const RENTER_SHARE_NAME = 'renter_pct'
 
 export const RENTER_SHARE_KEY = `${DERIVED_PREFIX}${RENTER_SHARE_NAME}`
 

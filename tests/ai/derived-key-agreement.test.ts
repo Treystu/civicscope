@@ -1,17 +1,24 @@
 /**
- * The derived-figure key the validator accepts must be the key the arithmetic
- * actually emits.
+ * The derived-figure key the validator accepts must be the key a derivation
+ * actually emits, and it must keep the unit its name declares.
  *
- * This is the tenant-compare divergence, reproduced and then pinned. The
- * validator's closed set named `derived:renter_pct`, which nothing in the tree
- * produced; `deriveShare` names its output from the caller and the arithmetic
- * suite passes `renter_share`. So the two halves of one feature disagreed about
- * the name of the same figure, and a caller wiring them together would have been
- * refused as "unknown figure key" for a reason unrelated to the arithmetic.
+ * This is the tenant-compare divergence, reproduced and then pinned. Two things
+ * were true at once before this file existed:
  *
- * A test that only checks either side in isolation cannot see this. This one
- * derives a share with the same call the feature would use and then asks the
- * validator's own predicate about the result.
+ * 1. `intent-schema.ts` accepted exactly one derived key, `derived:renter_pct`,
+ *    and nothing in the tree produced a derivation with that name - callers pass
+ *    their own, and the arithmetic suite passes `renter_share`.
+ * 2. Renaming the accepted key to the callers' convention is not a fix either.
+ *    `validator.ts` decides whether a figure can source a percent claim by reading
+ *    `pct|percent` out of the key, so `derived:renter_share` stops being a percent
+ *    source and a sentence like "the renter share is 42 percent" fails to validate.
+ *    The first attempt at this fix did exactly that and the rail caught it in two
+ *    validator cases.
+ *
+ * So the canonical name keeps its unit, lives next to the arithmetic that
+ * produces it, and is read by the validator's allowlist. These assertions pin all
+ * three properties at once, which is the only form that would have caught either
+ * half of the split on its own.
  */
 import { describe, expect, it } from 'vitest'
 
@@ -33,22 +40,21 @@ describe('derived figure keys agree with the derivation that produces them', () 
     expect(isKnownFigureKey(share.key)).toBe(true)
   })
 
-  it('is the key the rendered sentence can cite', () => {
-    // The compare path shows a tenant share and then validates the prose that
-    // names it; an accepted key with no producer, or a producer with no
-    // accepted key, breaks that pair in whichever direction it is wired.
+  it('the canonical name declares its unit, so a percent claim can cite it', () => {
+    // The unit is in the name on purpose: validator.ts's isPercentKey reads
+    // pct|percent from the key to decide whether a figure may source a percent.
+    expect(RENTER_SHARE_KEY).toMatch(/pct|percent/i)
     const share = deriveShare(RENTER_SHARE_NAME, RENTERS, HOUSEHOLDS)
     expect(share.value).toBeCloseTo(40, 5)
-    expect(isKnownFigureKey(share.key)).toBe(true)
   })
 
-  it('no longer accepts a name nothing emits', () => {
-    expect(isKnownFigureKey('derived:renter_pct')).toBe(false)
+  it('refuses a share-named variant, because it would lose the unit', () => {
+    expect(isKnownFigureKey('derived:renter_share')).toBe(false)
   })
 
   it('keeps the closed set closed rather than accepting any derived name', () => {
     expect(isKnownFigureKey('derived:anything')).toBe(false)
     expect(isKnownFigureKey('derived:')).toBe(false)
-    expect(isKnownFigureKey('renter_share')).toBe(false)
+    expect(isKnownFigureKey('renter_pct')).toBe(false)
   })
 })

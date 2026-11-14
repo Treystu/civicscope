@@ -73,7 +73,7 @@ describe('explain route', () => {
       },
     })
     const r = await handleExplain(
-      req({ figureSetId: 'f1', values: [{ key: 'derived:renter_share', value: 42 }] }),
+      req({ figureSetId: 'f1', values: [{ key: 'derived:renter_pct', value: 42 }] }),
       d,
     )
     expect(r.status).toBe(200)

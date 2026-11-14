@@ -30,9 +30,10 @@ const MAX_GEOGRAPHIES = 8
  * Code-supplied derived figures are a closed set, not any `derived:` name.
  *
  * The name comes from the module that produces the figure rather than being
- * spelled here: the two used to disagree (`derived:renter_pct` accepted, nothing
- * emitting it; `derived:renter_share` emitted, not accepted), which is the kind
- * of split that only shows up when somebody finally wires the halves together.
+ * spelled here. It used to be spelled here and nowhere else, so nothing tied the
+ * accepted name to the name any caller would use - and the name has to keep its
+ * `pct`, because validator.ts decides whether a figure can source a percent
+ * claim by reading `pct|percent` out of the key.
  */
 const KNOWN_DERIVED_FIGURE_KEYS = [RENTER_SHARE_KEY] as const
 
