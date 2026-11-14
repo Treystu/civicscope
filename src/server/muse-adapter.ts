@@ -8,9 +8,8 @@
  *   - Nothing is stored or logged: no body, no query text, no IP, no cookie.
  *     The meter is an in-memory aggregate counter, so a cold isolate starts at
  *     zero rather than inheriting anything durable.
- *   - Per-client cap support is wired to configuration but has no default
- *     value. The cap is S10, the owner's number; inventing one here would
- *     silently decide it.
+ *   - The meter is accounting-only with one pool-wide budget shutoff. It has
+ *     no per-client ceiling: K3 settles that none should exist (issue #83).
  */
 import { Meter, defaultMeterConfig } from '../core/ai/meter'
 import {
@@ -28,8 +27,6 @@ export interface MuseEnv {
   MUSE_BASE_URL?: string
   /** Aggregate shutoff ceiling, micro-USD. Defaults to the plan's judging cap. */
   MUSE_BUDGET_CAP_MICRO_USD?: string
-  /** S10 owner value. Unset means no per-client cap is applied. */
-  MUSE_PER_CLIENT_CAP_MICRO_USD?: string
   /** Pages platform metadata, read by the diagnostics surface. Public values. */
   CF_PAGES?: string
   CF_PAGES_BRANCH?: string
@@ -61,11 +58,9 @@ function parsePositiveInt(raw: string | undefined): number | undefined {
 export function meterFor(env: MuseEnv): Meter {
   if (sharedMeter) return sharedMeter
   const base = defaultMeterConfig()
-  const perClient = parsePositiveInt(env.MUSE_PER_CLIENT_CAP_MICRO_USD)
   sharedMeter = new Meter({
     ...base,
     budgetCapMicroUsd: parsePositiveInt(env.MUSE_BUDGET_CAP_MICRO_USD) ?? base.budgetCapMicroUsd,
-    ...(perClient === undefined ? {} : { perClientCapMicroUsd: perClient }),
   })
   return sharedMeter
 }
@@ -116,7 +111,10 @@ async function readBody(request: Request): Promise<unknown> {
  * page cannot use it as a relay even without that check.
  */
 export function museRoute(
-  handler: (req: { method: string; path: string; body: unknown; clientId: string }, deps: ProxyDeps) => Promise<ProxyReply>,
+  handler: (
+    req: { method: string; path: string; body: unknown },
+    deps: ProxyDeps,
+  ) => Promise<ProxyReply>,
 ) {
   return async (context: PagesContext<MuseEnv>): Promise<Response> => {
     const url = new URL(context.request.url)
@@ -131,8 +129,6 @@ export function museRoute(
         method: context.request.method,
         path: url.pathname,
         body: await readBody(context.request),
-        // Aggregate only. A stable per-deployment id, never a visitor id.
-        clientId: 'shared',
       },
       deps,
     )

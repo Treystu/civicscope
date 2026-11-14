@@ -11,7 +11,7 @@ const ALLOWED_PATHS = new Set(['/api/muse/transcribe'])
 const MAX_AUDIO_BYTES = 10 * 1024 * 1024
 
 export async function handleTranscribe(
-  req: { method: string; path: string; body: unknown; clientId: string },
+  req: { method: string; path: string; body: unknown },
   deps: ProxyDeps,
 ): Promise<ProxyReply> {
   const gate = preCallGate(req, deps, ALLOWED_PATHS, req.path)

@@ -85,3 +85,11 @@ issue #55 records the absence, not a chosen number. The Explain claim count is S
 pending final sign-off and checked against the shipped config in
 `docs/privacy-verification-checklist.md`. The Ask shell mount and stub-provider wiring landed in
 PR #50 at aab2c87.
+
+## Correction, 2026-11-14: per-client cap removed
+
+The 2026-10-28 section above says the per-client cap value remains S10 and unset.
+That is no longer the shipped state. K3 (2026-11-13) settles the meter as
+accounting-only with one pool-wide shutoff, so the per-client capability was
+removed from the code rather than left unset, and the diagnostics payload no
+longer carries a cap field (issue #83).

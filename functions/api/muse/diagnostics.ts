@@ -2,7 +2,7 @@
  * GET /api/muse/diagnostics — the deployment's own diagnostics facts.
  *
  * Exists so a user-exported artifact can say what the deployment actually
- * observes (whether a shared key is configured, meter totals, cap state,
+ * observes (whether a shared key is configured, meter totals, budget state,
  * build identity) instead of guessing from the browser. It reports booleans,
  * integers, and closed enums only: there is no field that could carry the key,
  * a query, a provider body, or a per-visitor value.
@@ -65,7 +65,6 @@ export async function handleDiagnostics(context: PagesContext<MuseEnv>): Promise
       schema: DIAGNOSTICS_SCHEMA,
       sharedKeyPresent: keyPresent,
       modelIsDefault: model === MUSE_SPARK_MODEL,
-      perClientCap: config.perClientCapConfigured ? 'configured' : 'unset',
       meterPersistence: 'isolate',
       budgetCapMicroUsd: config.budgetCapMicroUsd,
       spentMicroUsd: snapshot.spentMicroUsd,

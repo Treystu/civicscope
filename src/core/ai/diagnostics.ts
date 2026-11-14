@@ -216,7 +216,6 @@ export interface RouteObservation {
 
 export type ServerOutcome = 'reported' | 'unavailable'
 export type BreakerState = 'closed' | 'open' | 'half-open'
-export type CapState = 'configured' | 'unset' | 'unknown'
 export type MeterPersistence = 'isolate' | 'durable' | 'unknown'
 
 export interface ServerObservation {
@@ -224,7 +223,6 @@ export interface ServerObservation {
   status: number | null
   sharedKeyPresent: boolean | null
   modelIsDefault: boolean | null
-  perClientCap: CapState
   meterPersistence: MeterPersistence
   budgetCapMicroUsd: number | null
   spentMicroUsd: number | null
@@ -298,7 +296,6 @@ function unavailableServer(status: number | null): ServerObservation {
     status,
     sharedKeyPresent: null,
     modelIsDefault: null,
-    perClientCap: 'unknown',
     meterPersistence: 'unknown',
     budgetCapMicroUsd: null,
     spentMicroUsd: null,
@@ -337,7 +334,6 @@ export function parseServerObservation(
     status,
     sharedKeyPresent: boolOrNull(payload.sharedKeyPresent),
     modelIsDefault: boolOrNull(payload.modelIsDefault),
-    perClientCap: oneOf(payload.perClientCap, ['configured', 'unset'] as const) ?? 'unknown',
     meterPersistence:
       oneOf(payload.meterPersistence, ['isolate', 'durable'] as const) ?? 'unknown',
     budgetCapMicroUsd: countOrNull(payload.budgetCapMicroUsd),
@@ -371,7 +367,6 @@ function sanitizeServer(input: ServerObservation): ServerObservation {
     status: countOrNull(source.status),
     sharedKeyPresent: boolOrNull(source.sharedKeyPresent),
     modelIsDefault: boolOrNull(source.modelIsDefault),
-    perClientCap: oneOf(source.perClientCap, ['configured', 'unset'] as const) ?? 'unknown',
     meterPersistence:
       oneOf(source.meterPersistence, ['isolate', 'durable'] as const) ?? 'unknown',
     budgetCapMicroUsd: countOrNull(source.budgetCapMicroUsd),

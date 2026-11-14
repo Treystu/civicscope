@@ -50,7 +50,7 @@ function parseValues(raw: unknown): ExplainRequest['values'] | null {
 }
 
 export async function handleExplain(
-  req: { method: string; path: string; body: unknown; clientId: string },
+  req: { method: string; path: string; body: unknown },
   deps: ProxyDeps,
 ): Promise<ProxyReply> {
   const gate = preCallGate(req, deps, ALLOWED_PATHS, req.path)
@@ -70,7 +70,7 @@ export async function handleExplain(
     return err(400, 'shape_invalid', 'too many values')
   }
 
-  const reservation = deps.meter.reserve(req.clientId, EST_COST_MICRO, EST_TOKENS)
+  const reservation = deps.meter.reserve(EST_COST_MICRO, EST_TOKENS)
   if (!reservation) {
     deps.meter.recordError('budget_exhausted')
     return err(429, 'budget_exhausted')
@@ -83,7 +83,6 @@ export async function handleExplain(
     )
     deps.meter.settle(
       reservation,
-      req.clientId,
       ACTUAL_COST_MICRO,
       ACTUAL_TOKENS_IN,
       ACTUAL_TOKENS_OUT,

@@ -10,15 +10,14 @@ and error classes, in total.
 
 It never stores searches, keys, query text, IP addresses, or content. No
 per-search or per-person record exists in this store: only the running totals
-needed to operate the service and to stop it when the allowance is used up. A
-per-client total is kept in memory under an opaque id the browser generates, so
-the optional per-client cap can be applied; it names no person and does not
-survive a cold start.
+needed to operate the service and to stop it when the allowance is used up. No
+per-client total is kept either: the counter is accounting-only and divides
+nothing by visitor, by address or by browser.
 
 A hard budget shutoff is kept: when the configured budget is reached, further
-shared-allowance calls stop rather than continuing to spend. Any per-client cap
-is configured at the meter; this text states no cap value, because the value is
-the operator's setting, not a property of the product.
+shared-allowance calls stop rather than continuing to spend. That pool-wide
+shutoff is the only limit the meter enforces. There is no per-client cap, and
+this text states no cap value because no such setting exists.
 
 ## What is sent to the model
 

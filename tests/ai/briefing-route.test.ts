@@ -14,7 +14,7 @@ function deps(handler: Partial<MuseProvider> = {}) {
 }
 
 function req(body: unknown) {
-  return { method: 'POST', path: '/api/muse/briefing', body, clientId: 'c1' }
+  return { method: 'POST', path: '/api/muse/briefing', body }
 }
 
 describe('briefing route', () => {

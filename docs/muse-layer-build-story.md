@@ -125,7 +125,7 @@ This is the list the submission text and demo script must obey.
 | Agent onboarding (F5a) | **Built; independent run PENDING** | Artefact and handoff shipped at `917d3e46`; `run-record.md` says no independent run has been performed, so no completed-run claim may be made. #59 open. |
 | Briefing pack (F6) | **Real, with a re-verification gate** | `briefing()` at `917d3e46` re-verifies every figure and refuses on an altered value, an altered margin of error, a source that no longer resolves, or a filled-in absence; `tests/ai/briefing.test.ts` covers each. |
 | A visitor-supplied Meta key is usable | **Not in this build** | `ByoSettings` exists and is tested, but it is not mounted; `ByoOffer` has no settings action. |
-| Per-client cap is active | **Not set** | Code supports it; `MUSE_PER_CLIENT_CAP_MICRO_USD` is unset (S10 is the owner's). The aggregate cap is 52.50 USD. |
+| Per-client cap is active | **No such thing exists** | K3 (2026-11-13) settles the meter as accounting-only. The capability was removed rather than left unset (issue #83), because an unset cap still implied a mechanism the design does not have. The aggregate pool shutoff is 52.50 USD. |
 | Privacy text is final | **No** | `docs/privacy-workbench.md` says WORKBENCH COPY - NOT FINAL; one line (Durable Object) is unsupported by the shipped meter. |
 | The layer was built with Meta Muse Code | **No evidence** | Commit trailers name Codebuff; no Muse Code artefact exists. Do not claim it. |
 

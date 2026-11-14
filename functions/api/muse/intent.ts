@@ -19,7 +19,7 @@ const EST_TOKENS = 512
 const EST_COST_MICRO = 1000
 
 export async function handleIntent(
-  req: { method: string; path: string; body: unknown; clientId: string },
+  req: { method: string; path: string; body: unknown },
   deps: ProxyDeps,
 ): Promise<ProxyReply> {
   const gate = preCallGate(req, deps, ALLOWED_PATHS, req.path)
@@ -29,7 +29,7 @@ export async function handleIntent(
   if (typeof body.queryText === 'string' && body.queryText.length > MAX_QUERY_CHARS) {
     return err(400, 'shape_invalid', 'queryText exceeds ceiling')
   }
-  const reservation = deps.meter.reserve(req.clientId, EST_COST_MICRO, EST_TOKENS)
+  const reservation = deps.meter.reserve(EST_COST_MICRO, EST_TOKENS)
   if (!reservation) {
     deps.meter.recordError('budget_exhausted')
     return err(429, 'budget_exhausted')
@@ -52,7 +52,7 @@ export async function handleIntent(
       deps.meter.recordError(check.error)
       return { status: 422, body: { error: check.error, detail: check.detail } }
     }
-    deps.meter.settle(reservation, req.clientId, EST_COST_MICRO, 128, 64)
+    deps.meter.settle(reservation, EST_COST_MICRO, 128, 64)
     return { status: 200, body: { intent: check.intent } }
   } catch (e) {
     deps.meter.release(reservation)

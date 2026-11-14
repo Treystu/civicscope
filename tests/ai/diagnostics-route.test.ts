@@ -39,7 +39,6 @@ describe('GET /api/muse/diagnostics', () => {
     const body = JSON.parse(text)
     expect(body.sharedKeyPresent).toBe(true)
     expect(body.modelIsDefault).toBe(true)
-    expect(body.perClientCap).toBe('unset')
     expect(body.meterPersistence).toBe('isolate')
     expect(body.budgetCapMicroUsd).toBe(52_500_000)
   })
@@ -51,15 +50,12 @@ describe('GET /api/muse/diagnostics', () => {
     expect(body.modelIsDefault).toBe(true)
   })
 
-  it('reports whether a per-client cap is configured without publishing its value', async () => {
-    const response = await handleDiagnostics(
-      context({ MUSE_API_KEY: 'test-key', MUSE_PER_CLIENT_CAP_MICRO_USD: '1234567' }),
-    )
+  it('reports no per-client cap at all: the meter is accounting-only', async () => {
+    const response = await handleDiagnostics(context({ MUSE_API_KEY: 'test-key' }))
     const text = await response.text()
     const body = JSON.parse(text)
-    expect(body.perClientCap).toBe('configured')
-    expect(text).not.toContain('1234567')
-    expect(text).not.toContain('perClientCapMicroUsd')
+    expect(body.perClientCap).toBeUndefined()
+    expect(text).not.toContain('perClientCap')
   })
 
   it('refuses a foreign origin and a non-GET method', async () => {

@@ -41,7 +41,6 @@ const GOOD_SERVER_PAYLOAD = {
   schema: DIAGNOSTICS_SCHEMA,
   sharedKeyPresent: true,
   modelIsDefault: true,
-  perClientCap: 'unset',
   meterPersistence: 'isolate',
   budgetCapMicroUsd: 52_500_000,
   spentMicroUsd: 1_200,
