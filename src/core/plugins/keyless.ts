@@ -35,7 +35,18 @@ function source(publisher: string, dataset: string, tableId: string, vintage: st
 const PLACES_ID = 'yjkw-uj5s'
 const PLACES_VINTAGE = '2025 release'
 
-const PLACES_MEASURES = [
+/**
+ * The PLACES measures this plugin publishes, in the order they render.
+ *
+ * Exported so a test can pin the measure contract (dataset field, key, and the
+ * 95% interval column derived from the field name) without going near the
+ * network. Asthma joined the list on 2026-11-14: the tract release carries
+ * `casthma_crudeprev` and `casthma_crude95ci` in the same wide row shape as the
+ * measures already here, so it costs no extra request and inherits the whole
+ * existing safety path - protected-class stamping, the suppression floor, the
+ * notice, and exclusion from every sort, filter and composite.
+ */
+export const PLACES_MEASURES = [
   {
     field: 'obesity_crudeprev',
     key: 'pct_obesity',
@@ -65,6 +76,12 @@ const PLACES_MEASURES = [
     key: 'pct_depression',
     label: 'Adults reporting depression',
     note: 'Modelled estimate of the crude prevalence of adults reporting depression. A self-reported measure, not a clinical diagnosis.',
+  },
+  {
+    field: 'casthma_crudeprev',
+    key: 'pct_asthma',
+    label: 'Adults with current asthma',
+    note: 'Modelled estimate of the crude prevalence of current asthma among adults (CDC PLACES measure CASTHMA), with a 95% confidence interval. Self-reported condition, not a clinical diagnosis.',
   },
 ] as const
 
