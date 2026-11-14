@@ -95,10 +95,25 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
  * simply spends more of it.
  */
 function backoffMs(attempt: number, status: number): number {
+  // The largest wait a computed backoff may produce. The 30,000 ms figure the
+  // notes quote is the `Retry-After` cap in `fetchResilient`, not a backoff term:
+  // at four attempts the 429 series tops out at 12,000 ms before jitter, and the
+  // 5xx series at 3,000 ms. The difference matters because a throttle means the
+  // budget is spent, so 429 starts four times higher than 5xx.
   const base = status === 429 ? 3000 : 750
-  const ceiling = status === 429 ? 30_000 : 12_000
+  const ceiling = 12_000
   const exponential = Math.min(ceiling, base * 2 ** (attempt - 1))
-  return Math.round(exponential * (0.5 + Math.random()))
+  // Jitter is applied BEFORE the ceiling, not after.
+  //
+  // Applying it after was a measured defect (Champion Audit #72): the series for
+  // 429 was 3,000 / 6,000 / 12,000 before jitter, and multiplying that last term
+  // by up to 1.5 produced an 18,000 ms wait - half again the ceiling this
+  // function promises. A bound that the jitter is allowed to exceed is not a
+  // bound, and the caller (`fetchResilient`) relies on it to keep a throttle from
+  // stalling a request for longer than the caller is willing to wait. Clamping
+  // after jitter keeps the range wide (0.5x-1.5x) wherever it is below the
+  // ceiling, and shortens only the terms that would have breached it.
+  return Math.round(Math.min(ceiling, exponential * (0.5 + Math.random())))
 }
 
 /**
@@ -168,7 +183,18 @@ export async function getJson<T>(url: string, opts: GetJsonOptions): Promise<T> 
     if (!res.ok) {
       throw new SourceUnavailableError(`Request failed (${res.status})`, url, res.status)
     }
-    const body = (await res.json()) as T
+    // A 200 carrying an HTML error page is a source failure, not a parse crash.
+    // Census and TIGERweb both answer HTTP 200 with an error page when a
+    // parameter or key is wrong (measured 2026-11-11: the ACS endpoint answered
+    // 302/HTML to a keyless query), and an uncaught SyntaxError here surfaced as
+    // an application bug rather than as the publisher being unavailable.
+    const text = await res.text()
+    let body: T
+    try {
+      body = JSON.parse(text) as T
+    } catch {
+      throw new SourceUnavailableError(`Response was not JSON (HTTP ${res.status})`, url, res.status)
+    }
     if (opts.cache !== false) await writeCache(url, body)
     return body
   })()

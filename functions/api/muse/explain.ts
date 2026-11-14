@@ -8,7 +8,8 @@
 import { MAX_EXPLAIN_VALUES, type ExplainRequest } from '../../../src/core/ai/provider'
 import { isKnownFigureKey } from '../../../src/core/ai/intent-schema'
 import { realValidator, type FigureForValidation } from '../../../src/core/ai/validator'
-import { preCallGate, mapProviderError, err, type ProxyDeps, type ProxyReply } from './shared'
+import { preCallGate, mapProviderError, err, type ProxyDeps, type ProxyReply } from '../../../src/server/muse-proxy'
+import { museRoute } from '../../../src/server/muse-adapter'
 
 const ALLOWED_PATHS = new Set(['/api/muse/explain'])
 const MAX_ID_CHARS = 128
@@ -49,7 +50,7 @@ function parseValues(raw: unknown): ExplainRequest['values'] | null {
 }
 
 export async function handleExplain(
-  req: { method: string; path: string; body: unknown; clientId: string },
+  req: { method: string; path: string; body: unknown },
   deps: ProxyDeps,
 ): Promise<ProxyReply> {
   const gate = preCallGate(req, deps, ALLOWED_PATHS, req.path)
@@ -69,7 +70,7 @@ export async function handleExplain(
     return err(400, 'shape_invalid', 'too many values')
   }
 
-  const reservation = deps.meter.reserve(req.clientId, EST_COST_MICRO, EST_TOKENS)
+  const reservation = deps.meter.reserve(EST_COST_MICRO, EST_TOKENS)
   if (!reservation) {
     deps.meter.recordError('budget_exhausted')
     return err(429, 'budget_exhausted')
@@ -82,7 +83,6 @@ export async function handleExplain(
     )
     deps.meter.settle(
       reservation,
-      req.clientId,
       ACTUAL_COST_MICRO,
       ACTUAL_TOKENS_IN,
       ACTUAL_TOKENS_OUT,
@@ -111,3 +111,6 @@ export async function handleExplain(
     return mapped
   }
 }
+
+/** Pages Function entry point. The handler above stays framework-free. */
+export const onRequestPost = museRoute(handleExplain)

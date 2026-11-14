@@ -1,13 +1,17 @@
 /**
- * Q1 aggregate meter: counts only, never content. Reservation/settlement,
- * circuit breaker, per-client cap support (cap values are config, set at S10).
+ * Q1 aggregate meter: counts only, never content. Reservation/settlement and
+ * the circuit breaker.
+ *
+ * Accounting-only, with no per-client cap: K3 (2026-11-13) settles that the
+ * meter counts and enforces one pool-wide budget shutoff, and that no
+ * per-client ceiling exists. The capability was removed rather than left
+ * unset, because an unset cap still advertised a mechanism the design does not
+ * have and the privacy text described it as available (issue #83).
  */
 
 export interface MeterConfig {
   /** Hard shutoff ceiling in micro-dollars (integer money; no floats). */
   budgetCapMicroUsd: number
-  /** Per-client cap in micro-dollars; undefined = not yet configured (S10). */
-  perClientCapMicroUsd?: number
   /** Per-request token ceiling. */
   perRequestTokenCeiling: number
   breakerFailureThreshold: number
@@ -34,11 +38,7 @@ export class Meter {
   private breaker: BreakerState = 'closed'
   private breakerOpenedAt = 0
   private readonly errors = new Map()
-  private readonly perClientSpent = new Map<string, number>()
-  private readonly reservations = new Map<
-    string,
-    { clientId: string; estMicroUsd: number }
-  >()
+  private readonly reservations = new Map<string, { estMicroUsd: number }>()
   private nextReservationId = 0
 
   constructor(private readonly cfg: MeterConfig) {}
@@ -54,6 +54,24 @@ export class Meter {
     }
   }
 
+  /**
+   * Configuration the diagnostics surface may report. There is no per-client
+   * field to report: the meter has no such setting (K3, issue #83).
+   */
+  configSnapshot(): {
+    budgetCapMicroUsd: number
+    perRequestTokenCeiling: number
+    breakerFailureThreshold: number
+    breakerCooldownMs: number
+  } {
+    return {
+      budgetCapMicroUsd: this.cfg.budgetCapMicroUsd,
+      perRequestTokenCeiling: this.cfg.perRequestTokenCeiling,
+      breakerFailureThreshold: this.cfg.breakerFailureThreshold,
+      breakerCooldownMs: this.cfg.breakerCooldownMs,
+    }
+  }
+
   breakerState(now = Date.now()): BreakerState {
     if (this.breaker === 'open' && now - this.breakerOpenedAt >= this.cfg.breakerCooldownMs) {
       this.breaker = 'half-open'
@@ -62,7 +80,7 @@ export class Meter {
   }
 
   /** Reserve budget before a provider call. Returns reservation id or null. */
-  reserve(clientId: string, estMicroUsd: number, estTokens: number): string | null {
+  reserve(estMicroUsd: number, estTokens: number): string | null {
     if (this.breakerState() === 'open') return null
     if (!Number.isFinite(estMicroUsd) || estMicroUsd <= 0) return null
     if (!Number.isFinite(estTokens) || estTokens <= 0) return null
@@ -76,29 +94,18 @@ export class Meter {
       return null
     }
 
-    if (this.cfg.perClientCapMicroUsd !== undefined) {
-      const used = this.perClientSpent.get(clientId) ?? 0
-      const clientOutstanding = [...this.reservations.values()]
-        .filter((r) => r.clientId === clientId)
-        .reduce((sum, r) => sum + r.estMicroUsd, 0)
-      if (used + clientOutstanding + estMicroUsd > this.cfg.perClientCapMicroUsd) {
-        return null
-      }
-    }
-
     // Monotonic ids never reuse a live reservation's id, even after release.
     const id = `r${++this.nextReservationId}`
-    this.reservations.set(id, { clientId, estMicroUsd })
+    this.reservations.set(id, { estMicroUsd })
     return id
   }
 
-  settle(id: string, clientId: string, actualMicroUsd: number, tin: number, tout: number): void {
+  settle(id: string, actualMicroUsd: number, tin: number, tout: number): void {
     this.reservations.delete(id)
     this.requests += 1
     this.tokensIn += tin
     this.tokensOut += tout
     this.spentMicroUsd += actualMicroUsd
-    this.perClientSpent.set(clientId, (this.perClientSpent.get(clientId) ?? 0) + actualMicroUsd)
     this.failures = 0
     if (this.breaker === 'half-open') this.breaker = 'closed'
   }

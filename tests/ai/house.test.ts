@@ -92,9 +92,9 @@ describe('intent schema allowlist', () => {
 describe('meter', () => {
   it('enforces the budget cap and per-request ceiling', () => {
     const m = new Meter({ ...defaultMeterConfig(), budgetCapMicroUsd: 1500 })
-    expect(m.reserve('c1', 1000, 100)).not.toBeNull()
-    m.settle('r1', 'c1', 1000, 10, 10)
-    expect(m.reserve('c1', 1000, 100)).toBeNull()
+    expect(m.reserve(1000, 100)).not.toBeNull()
+    m.settle('r1', 1000, 10, 10)
+    expect(m.reserve(1000, 100)).toBeNull()
     expect(m.snapshot().budgetExhausted).toBe(false)
   })
 
@@ -105,30 +105,27 @@ describe('meter', () => {
     expect(m.breakerState()).toBe('open')
   })
 
-  it('enforces per-client cap when configured', () => {
-    const m = new Meter({ ...defaultMeterConfig(), perClientCapMicroUsd: 500 })
-    expect(m.reserve('c1', 600, 10)).toBeNull()
-    expect(m.reserve('c1', 400, 10)).not.toBeNull()
+  it('has no per-client cap: the only ceiling is the pool (K3, #83)', () => {
+    const m = new Meter({ ...defaultMeterConfig(), budgetCapMicroUsd: 1000 })
+    const first = m.reserve(600, 10)
+    expect(first).not.toBeNull()
+    // A second reservation is refused because the POOL cannot cover it, not
+    // because any one caller has spent its share; there is no share.
+    expect(m.reserve(600, 10)).toBeNull()
+    expect(Object.keys(m.configSnapshot())).not.toContain('perClientCapConfigured')
+    expect(Object.keys(defaultMeterConfig())).not.toContain('perClientCapMicroUsd')
   })
 
   it('counts outstanding reservations against the cap and never reuses a live id', () => {
     const m = new Meter({ ...defaultMeterConfig(), budgetCapMicroUsd: 1000 })
-    const first = m.reserve('c1', 600, 10)
+    const first = m.reserve(600, 10)
     expect(first).not.toBeNull()
-    expect(m.reserve('c1', 600, 10)).toBeNull()
+    expect(m.reserve(600, 10)).toBeNull()
 
     m.release(first as string)
-    const second = m.reserve('c1', 600, 10)
+    const second = m.reserve(600, 10)
     expect(second).not.toBeNull()
     expect(second).not.toBe(first)
-  })
-
-  it('counts outstanding reservations against the per-client cap', () => {
-    const m = new Meter({ ...defaultMeterConfig(), perClientCapMicroUsd: 1000 })
-    const first = m.reserve('c1', 600, 10)
-    expect(first).not.toBeNull()
-    expect(m.reserve('c1', 600, 10)).toBeNull()
-    expect(m.reserve('c2', 600, 10)).not.toBeNull()
   })
 })
 
@@ -147,7 +144,7 @@ describe('proxy route', () => {
       allowedModels: ['spark-test'],
     }
     const bad = await handleIntent(
-      { method: 'POST', path: '/api/muse/explain', body: {}, clientId: 'c1' },
+      { method: 'POST', path: '/api/muse/explain', body: {} },
       deps,
     )
     expect(bad.status).toBe(400)
@@ -173,7 +170,7 @@ describe('proxy route', () => {
       allowedModels: ['spark-test'],
     }
     const ok = await handleIntent(
-      { method: 'POST', path: '/api/muse/intent', body: { slots: {} }, clientId: 'c1' },
+      { method: 'POST', path: '/api/muse/intent', body: { slots: {} } },
       deps,
     )
     expect(ok.status).toBe(200)

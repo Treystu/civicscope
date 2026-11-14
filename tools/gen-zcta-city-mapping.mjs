@@ -54,6 +54,31 @@ const COL = {
 /** Every ZCTA in the country. Asserted, never assumed. */
 const EXPECTED_ZCTAS = 33791
 
+/**
+ * Column indices in the COUNTY relationship file, read off its published header
+ * (fetched 2026-11-06), not assumed from the place file:
+ *
+ *   OID_ZCTA5_20|GEOID_ZCTA5_20|NAMELSAD_ZCTA5_20|AREALAND_ZCTA5_20|
+ *   AREAWATER_ZCTA5_20|MTFCC_ZCTA5_20|CLASSFP_ZCTA5_20|FUNCSTAT_ZCTA5_20|
+ *   OID_COUNTY_20|GEOID_COUNTY_20|NAMELSAD_COUNTY_20|AREALAND_COUNTY_20|
+ *   AREAWATER_COUNTY_20|MTFCC_COUNTY_20|CLASSFP_COUNTY_20|FUNCSTAT_COUNTY_20|
+ *   AREALAND_PART|AREAWATER_PART
+ *
+ * Two traps in this file, both measured rather than assumed. It opens with a
+ * byte-order mark, so the first column name carries U+FEFF and a header lookup
+ * by name misses column 0. And it begins with several hundred county-only rows
+ * whose ZCTA columns are empty: the first 30 KB contains zero rows with a
+ * GEOID_ZCTA5_20, so a parser that counts rows instead of checking the ZCTA
+ * field indexes a short list and still looks plausible.
+ */
+const COL_COUNTY = {
+  zcta: 1,
+  zctaLand: 3,
+  countyGeoid: 9,
+  countyName: 10,
+  partLand: 16,
+}
+
 const log = (...a) => console.log('[gen:zcta-city]', ...a)
 
 /**
@@ -144,6 +169,42 @@ function parsePlace(text) {
   return best
 }
 
+/**
+ * One county per ZCTA, keeping the county GEOID and the share of the ZCTA's own
+ * land that falls inside it.
+ *
+ * The share is what lets an aggregate disclose its own approximation: a ZCTA
+ * with share 100 nests cleanly in its county, a ZCTA with share 62 straddles a
+ * boundary and its whole count is attributed to the larger side. Without the
+ * share, a county total looks exact when part of it belongs to a neighbour.
+ *
+ * Ties on land overlap are broken by GEOID so the result is deterministic from
+ * the file's contents rather than from its row order.
+ */
+function parseCountyIndex(text) {
+  const best = new Map()
+  for (const line of text.split(/\r?\n/).slice(1)) {
+    if (!line) continue
+    const c = line.split('|')
+    const zcta = c[COL_COUNTY.zcta]?.trim()
+    // This is the county-only block at the head of the file, not a missing value.
+    if (!zcta || !/^\d{5}$/.test(zcta)) continue
+    const geoid = c[COL_COUNTY.countyGeoid]?.trim()
+    if (!geoid || !/^\d{5}$/.test(geoid)) {
+      throw new Error(`ZIP ${zcta} has county GEOID "${geoid}", which is not five digits`)
+    }
+    const name = c[COL_COUNTY.countyName]?.trim()
+    if (!name) throw new Error(`county ${geoid} has no published name`)
+    const part = Number(c[COL_COUNTY.partLand] || 0)
+    const whole = Number(c[COL_COUNTY.zctaLand] || 0)
+    const share = whole > 0 ? Math.round((part / whole) * 100) : null
+    const cur = best.get(zcta)
+    if (cur && (part < cur.part || (part === cur.part && geoid >= cur.geoid))) continue
+    best.set(zcta, { geoid, name, part, share })
+  }
+  return best
+}
+
 /** One county per ZCTA, same rule. Used only where no incorporated place overlaps. */
 function parseCounty(text) {
   const best = new Map()
@@ -165,11 +226,113 @@ function parseCounty(text) {
   return best
 }
 
+/**
+ * Writes the ZCTA-to-county index: one county per ZIP, dictionary-packed.
+ *
+ * The county names are stored once per county rather than once per ZIP because
+ * there are about 3,143 counties against 33,791 ZIPs, and the record is the
+ * county's index plus the share of the ZCTA's land inside it (0-100). A share of
+ * 100 means the ZCTA nests cleanly; anything less is a straddling ZCTA whose
+ * whole count is attributed to the larger side, and the consumer must be able to
+ * say so rather than present the sum as exact.
+ */
+function writeCountyIndex(index, states, target) {
+  const zips = [...index.keys()].sort()
+  if (zips.length !== EXPECTED_ZCTAS) {
+    throw new Error(
+      `${zips.length} ZCTAs carry a county; the country has ${EXPECTED_ZCTAS} and a short fetch is a bug`,
+    )
+  }
+
+  const countyGeoids = []
+  const countyNames = []
+  const countyAt = new Map()
+  const straddling = []
+  let shareUnknown = 0
+  let records = ''
+  const deltas = []
+  let previous = -1
+
+  for (const zip of zips) {
+    const row = index.get(zip)
+    let ci = countyAt.get(row.geoid)
+    if (ci === undefined) {
+      ci = countyGeoids.length
+      countyGeoids.push(row.geoid)
+      countyNames.push(row.name)
+      countyAt.set(row.geoid, ci)
+    }
+    if (ci > 9999) throw new Error(`county dictionary overflow at ${row.geoid}`)
+    if (row.share === null) shareUnknown++
+    if (row.share !== null && row.share < 100) straddling.push(zip)
+    const share = row.share ?? 0
+    if (share < 0 || share > 100) throw new Error(`land share out of range for ${zip}: ${share}`)
+    // 4 + 3 = 7 characters per ZIP: county dictionary id, then land share 0-100.
+    records += String(ci).padStart(4, '0') + String(share).padStart(3, '0')
+
+    const delta = Number(zip) - previous - 1
+    if (delta < 0 || delta > 9999) {
+      throw new Error(`ZIP delta out of range at ${zip}: ${delta} (0..9999 expected)`)
+    }
+    deltas.push(delta)
+    previous = Number(zip)
+  }
+
+  // Measured 2026-11-06 on the published file: 3,211 distinct counties carrying a
+  // ZCTA. That is the 3,143 county equivalents of the 50 states and DC plus
+  // Puerto Rico's municipios (3,221 at most; a few carry no ZCTA). A count well
+  // outside this range means the parser read the county-only header block or
+  // dropped rows, which is why the bound is asserted.
+  if (countyGeoids.length < 3000 || countyGeoids.length > 3221) {
+    throw new Error(
+      `${countyGeoids.length} distinct counties; the published 2020 file carries about 3,211 and at most 3,221`,
+    )
+  }
+  for (const geoid of countyGeoids) {
+    const fips = geoid.slice(0, 2)
+    if (!states.get(fips)) {
+      throw new Error(`county ${geoid} has state FIPS "${fips}", which TIGERweb did not return`)
+    }
+  }
+
+  const payload = {
+    v: 1,
+    source: 'US Census Bureau 2020 ZCTA-to-County relationship file (tab20_zcta520_county20_natl.txt)',
+    note:
+      'One county per ZCTA: the county holding the largest share of the ZCTA land. share is ' +
+      'AREALAND_PART as a percentage of the ZCTA land area; 100 means the ZIP nests cleanly in ' +
+      'the county, below 100 means it straddles a boundary. Medians are not aggregated by consumers.',
+    zd: deltas,
+    counties: countyGeoids.map((geoid, i) => [geoid, countyNames[i]]),
+    states: Object.fromEntries(states),
+    rec: records,
+  }
+
+  const json = JSON.stringify(payload)
+  mkdirSync(OUT, { recursive: true })
+  writeFileSync(target, json)
+  log(`zcta-counties.json: ${zips.length} records, ${countyGeoids.length} counties, ${(json.length / 1024).toFixed(0)} KB raw`)
+  log(`  ${zips.length - straddling.length} ZIPs nest in their county, ${straddling.length} straddle, ${shareUnknown} have no land share`)
+
+  const manifestPath = join(OUT, 'manifest.json')
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+  manifest.countyMappingZctas = zips.length
+  manifest.countyMappingCounties = countyGeoids.length
+  manifest.countyMappingStraddleZips = straddling.length
+  manifest.countyMappingShareUnknown = shareUnknown
+  manifest.countyMappingBytes = Buffer.byteLength(json)
+  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n')
+  log('manifest.json updated (existing keys preserved)')
+}
+
 async function main() {
   const force = process.argv.includes('--force')
   const target = join(OUT, 'zcta-places.json')
-  if (!force && existsSync(target)) {
-    log('zcta-places.json already present; pass --force to regenerate')
+  const countyTarget = join(OUT, 'zcta-counties.json')
+  const needPlaces = force || !existsSync(target)
+  const needCounties = force || !existsSync(countyTarget)
+  if (!needPlaces && !needCounties) {
+    log('zcta-places.json and zcta-counties.json already present; pass --force to regenerate')
     return
   }
 
@@ -177,10 +340,16 @@ async function main() {
   const states = await fetchStateCodes()
   log(`  ${states.size} state codes`)
 
-  log('fetching the ZCTA-to-place relationship file (9.8 MB, keyless)...')
-  const placeText = await fetchText(PLACE_URL)
   log('fetching the ZCTA-to-county relationship file (6.8 MB, keyless)...')
   const countyText = await fetchText(COUNTY_URL)
+
+  if (needCounties) {
+    writeCountyIndex(parseCountyIndex(countyText), states, countyTarget)
+    if (!needPlaces) return
+  }
+
+  log('fetching the ZCTA-to-place relationship file (9.8 MB, keyless)...')
+  const placeText = await fetchText(PLACE_URL)
 
   const places = parsePlace(placeText)
   const counties = parseCounty(countyText)

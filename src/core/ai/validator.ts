@@ -26,11 +26,14 @@ export interface FigureForValidation {
   suppressed?: boolean
 }
 
-export type ValidatorFailure =
-  | 'intent_gate'
-  | 'invented_numeral'
-  | 'precision'
-  | 'banned_construction'
+export const VALIDATOR_FAILURES = [
+  'intent_gate',
+  'invented_numeral',
+  'precision',
+  'banned_construction',
+] as const
+
+export type ValidatorFailure = (typeof VALIDATOR_FAILURES)[number]
 
 export type ValidatorVerdict =
   | { pass: true }

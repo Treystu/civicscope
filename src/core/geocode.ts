@@ -123,24 +123,42 @@ async function resolveZcta(zip: string, signal: AbortSignal): Promise<ResolvedPl
  * so two earlier versions of this filter rejected real US ZIP codes for Hawaii,
  * Alaska, Puerto Rico, and Guam.
  */
-async function resolveFreeText(text: string, signal: AbortSignal): Promise<ResolvedPlace[]> {
-  const url = `${PHOTON}?q=${encodeURIComponent(text)}&limit=8&lang=en`
-  const data = await getJson<{
-    features?: {
-      geometry: { coordinates: [number, number] }
-      properties: {
-        name?: string
-        city?: string
-        county?: string
-        state?: string
-        countrycode?: string
-        osm_key?: string
-        osm_value?: string
-        postcode?: string
-      }
-    }[]
-  }>(url, { signal, headers: { 'Accept-Language': 'en' } })
+/** The shape of one Photon feature, as far as this module reads it. */
+export interface PhotonFeature {
+  geometry: { coordinates: [number, number] }
+  properties: {
+    name?: string
+    city?: string
+    county?: string
+    state?: string
+    countrycode?: string
+    osm_key?: string
+    osm_value?: string
+    postcode?: string
+  }
+}
 
+export interface PhotonBody {
+  features?: PhotonFeature[]
+}
+
+/**
+ * Maps Photon's response into places, **in Photon's own order**.
+ *
+ * Exported so the ordering decision can be measured against the alternative
+ * rather than asserted: the champion re-sorts these postcode-first, and the
+ * comparator in the audit is exactly this function's output unsorted. Replaying
+ * the comparator through a copy of this mapping would measure the copy, which is
+ * how a comparator audit ends up reporting the audit's own arithmetic as a
+ * property of the champion.
+ *
+ * The country filter is `cc && cc !== 'us'`: a feature that carries no
+ * `countrycode` is admitted. That is deliberate-ish rather than deliberate -
+ * Photon returns features with no country code, and rejecting them would drop
+ * real US places - but it means an unnamed foreign feature with no code is
+ * admitted unfiltered, which is one of the two gaps issue #73 records.
+ */
+export function mapPhotonFeatures(data: PhotonBody, text: string): ResolvedPlace[] {
   const out: ResolvedPlace[] = []
   for (const f of data.features ?? []) {
     const p = f.properties
@@ -162,9 +180,15 @@ async function resolveFreeText(text: string, signal: AbortSignal): Promise<Resol
       precise: p.osm_value === 'postcode',
     })
   }
+  return out
+}
+
+async function resolveFreeText(text: string, signal: AbortSignal): Promise<ResolvedPlace[]> {
+  const url = `${PHOTON}?q=${encodeURIComponent(text)}&limit=8&lang=en`
+  const data = await getJson<PhotonBody>(url, { signal, headers: { 'Accept-Language': 'en' } })
   // A postcode feature is a better answer than a city centroid, so order them
   // first; Photon's own ordering is not by country or by kind.
-  return out.sort((a, b) => Number(b.precise) - Number(a.precise))
+  return mapPhotonFeatures(data, text).sort((a, b) => Number(b.precise) - Number(a.precise))
 }
 
 export async function geocode(text: string, signal: AbortSignal): Promise<GeocodeOutcome> {

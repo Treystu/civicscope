@@ -1,8 +1,10 @@
 # CivicScope
 
-Free, auditable US housing and neighbourhood data. Fetches directly from the
-publishers in your browser — no server, no database, no accounts, no ads, no
-analytics.
+Free, auditable US housing and neighbourhood data. Housing figures are fetched
+directly from the publishers in your browser — no database, no accounts, no ads,
+no analytics, and no record of what you look up. The one server-side component is
+the optional Muse AI proxy, which exists so a shared model key never reaches the
+browser; it holds counters, not queries (see "The Muse layer" below).
 
 ## What this is
 
@@ -21,8 +23,8 @@ whole premise.
 ## Architecture
 
 ```
-Browser (the entire product)
-  ├─ No runtime backend, no database, no user accounts, no search logging
+Browser (the data product)
+  ├─ Data fetched directly from publishers; no database, no accounts, no search logging
   ├─ The user's own Census API key → localStorage, never sent to us
   ├─ Plugin registry: declarative (geography, requires, source, legal)
   ├─ DAG executor → request dedup + concurrent fan-out
@@ -33,6 +35,45 @@ Browser (the entire product)
 
 An operator that cannot see who searched where cannot deliver different results
 to different people. That is a legal property, not just a cost saving.
+
+## The Muse layer (Ask + Explain)
+
+CivicScope&rsquo;s Muse layer (Ask + Explain) turns plain questions about US
+housing data into structured, executable queries over sourced Census/ACS
+figures, and explains retrieved figures in plain language. The model never
+produces numbers: every figure comes from the deterministic data layer with
+source and margin of error, and model output is validated in code before it can
+execute or display. Ask runs in four modes (lookup, compare, sweep_filter,
+similarity); Explain covers all 15 registered metrics.
+
+Evaluation: a versioned 91-case golden corpus with a 7-case safety subset; bars
+are >=95% exact-intent and 100% safety on the live tier. Hermetic replay: 91/91
+exact, 7/7 safety (measures the schema/scorer path, not the model). Live tier:
+measured once, 2026-11-03, at 96.7% (88/91) exact and 7/7 safety, from
+the union tree's preview portal deployment; surface, model and misses are in
+[the eval record](docs/muse-layer-eval.md). Not re-run in this repository. Voice input is not part of this submission.
+
+### How the layer runs
+
+The layer is served by five Pages Functions under `functions/api/muse/`: `intent`,
+`explain`, `briefing`, `diagnostics`, and an inert `transcribe` shell with no
+caller. They exist so the shared model key stays server-side and never reaches
+the browser. Each route validates a closed shape before it forwards anything -
+structured slots for intent, and the displayed figure set (re-checked against its
+SourceRefs before the call) for explain and briefing - then meter-gates the call
+and validator-gates the prose that comes back.
+
+The meter is an in-memory aggregate: request, token, spend and error-class
+totals, and nothing per person - there is no per-client counter and no
+per-client cap (removed 2026-11-14 under the K3 ruling, issue #83). It holds no
+query text, no IP, no key and no content, and it lives in one isolate, so
+totals reset on a cold start - `/api/muse/diagnostics` reports
+`meterPersistence: "isolate"` rather than implying durable storage. When the
+configured budget is spent, further shared-allowance calls answer 429 instead of
+spending. A visitor may instead use their own Meta key, which stays in their
+browser and is sent only to `api.meta.ai`.
+
+Privacy for the Muse layer is in [docs/privacy.md](docs/privacy.md).
 
 ## Data sources
 
@@ -122,6 +163,16 @@ reported as a bad key.
 `civicscope:census-key`; the app listens and reloads the sweep. Reading the key
 during render instead produces a constant value, so the effect keyed on it can
 never fire.
+
+**An agent can walk a user through key setup.** The in-app "Set up with your
+agent" entry point points an AI agent at a versioned workflow —
+[`docs/agent-onboarding/workflow.v1.json`](docs/agent-onboarding/workflow.v1.json) —
+covering both the Census key and an optional personal Meta key. The key never
+transits CivicScope and is never accepted as an agent report: setup success is
+confirmed only by the app's own re-validation events (`civicscope:census-key`,
+`civicscope:meta-key-changed`), and an unexpected screen aborts the workflow to
+the manual path at the equivalent step. Run records live in
+[`docs/agent-onboarding/run-record.md`](docs/agent-onboarding/run-record.md).
 
 **A production deploy is not immediately live.** Pages promotes the new
 deployment to the production alias a few seconds after upload, and during this
@@ -247,9 +298,10 @@ npm run test:live    # live API contract checks (hits the network)
 
 ## Deploying
 
-The app is a static site with no backend, so the Cloudflare Pages free tier
-covers it indefinitely — no server cost, no Workers, no spend cap to worry
-about.
+The app is a static site plus Pages Functions for the optional Muse proxy, so the
+Cloudflare Pages free tier covers it indefinitely — no server cost, no database,
+no spend cap to worry about. Housing data never passes through those functions;
+they only relay model requests whose shared key stays server-side.
 
 ```bash
 npm run cf:login     # one-time browser auth

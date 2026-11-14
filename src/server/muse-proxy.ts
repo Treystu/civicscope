@@ -1,13 +1,13 @@
 /**
  * Shared proxy machinery for /api/muse/* (House).
  * Closed error taxonomy — raw provider bodies are never forwarded.
- * The workbench counter store is a contract + hermetic test double
- * (src/core/ai/meter.ts Meter class); the real Durable Object binding
- * is a port-time adapter. No live Durable Object exists in this tree.
+ * The counter store is the in-memory Meter (src/core/ai/meter.ts): there is no
+ * storage binding, which is the plan's no-storage property rather than an
+ * omission. A cold isolate starts its counters at zero.
  */
-import type { Meter } from '../../../src/core/ai/meter'
-import type { MuseProvider } from '../../../src/core/ai/provider'
-import type { ProxyError } from '../../../src/core/ai/proxy-errors'
+import type { Meter } from '../core/ai/meter'
+import type { MuseProvider } from '../core/ai/provider'
+import type { ProxyError } from '../core/ai/proxy-errors'
 
 export interface ProxyDeps {
   meter: Meter

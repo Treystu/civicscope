@@ -168,7 +168,18 @@ describe.skipIf(!hasCitySearch)('e2e: city search', () => {
       zip,
       { timeout: 90000 },
     )
-    // The comparison header carries the city, which is the whole feature.
+    // The comparison header carries the city, which is the whole feature. Awaited for
+    // the same reason as the url-state fixture: the ZIP and the city label are in one
+    // card but not necessarily one frame, and reading between them is a race, not a
+    // product defect.
+    await page.waitForFunction(
+      (z) =>
+        [...document.querySelectorAll('main article')].some(
+          (a) => a.textContent?.includes(z) && /Austin,/.test(a.textContent ?? ''),
+        ),
+      zip,
+      { timeout: 30000 },
+    )
     const card = page.locator('main article').filter({ hasText: zip }).first()
     expect(await card.innerText()).toMatch(/Austin,/)
   }, 120000)

@@ -3,6 +3,16 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig(({ mode }) => ({
   plugins: [react()],
+  // The one deployment-supplied value the client is allowed to see. Vite
+  // exposes only VITE_-prefixed variables by default; CENSUS_APP_KEY is the
+  // shared Census application key a deployment may provide so the full
+  // dataset works before a visitor adds a personal key (the federation
+  // decided 2026-10-31; see getSharedCensusKey in src/core/censusKey.ts).
+  // The key is an application identifier the Census Bureau issues for usage
+  // tracking, not a visitor credential. It reaches the client only when the
+  // deployment sets it at build time; an unset variable is simply absent,
+  // and the app then behaves exactly as it did before the shared key existed.
+  envPrefix: ['VITE_', 'CENSUS_APP_KEY'],
   build: {
     target: 'es2022',
     // Source maps are useful during development and are a 500KB public

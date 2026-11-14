@@ -5,6 +5,7 @@
  * school/health keys can never appear in filters by construction.
  */
 import { METRIC_KEYS, SORTABLE_METRIC_KEYS } from '../civicscope-registry'
+import { RENTER_SHARE_KEY } from './arithmetic-check'
 import type { IntentMode, ValidatedIntent } from './provider'
 
 /** Exactly the ported SORTABLE_METRIC_KEYS — same reference, never a copy. */
@@ -25,8 +26,16 @@ const MODES: readonly IntentMode[] = [
 const FILTER_OPS = ['gt', 'lt', 'eq_range'] as const
 const MAX_GEOGRAPHIES = 8
 
-/** Code-supplied derived figures are a closed set, not any `derived:` name. */
-const KNOWN_DERIVED_FIGURE_KEYS = ['derived:renter_pct'] as const
+/**
+ * Code-supplied derived figures are a closed set, not any `derived:` name.
+ *
+ * The name comes from the module that produces the figure rather than being
+ * spelled here. It used to be spelled here and nowhere else, so nothing tied the
+ * accepted name to the name any caller would use - and the name has to keep its
+ * `pct`, because validator.ts decides whether a figure can source a percent
+ * claim by reading `pct|percent` out of the key.
+ */
+const KNOWN_DERIVED_FIGURE_KEYS = [RENTER_SHARE_KEY] as const
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)

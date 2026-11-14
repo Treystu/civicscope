@@ -4,13 +4,14 @@
  * microphone UI, consent, or CSP change ships. No provider call and no dead
  * button. In the allowlist + meter from day one so mic needs no new route.
  */
-import { preCallGate, err, type ProxyDeps, type ProxyReply } from './shared'
+import { preCallGate, err, type ProxyDeps, type ProxyReply } from '../../../src/server/muse-proxy'
+import { museRoute } from '../../../src/server/muse-adapter'
 
 const ALLOWED_PATHS = new Set(['/api/muse/transcribe'])
 const MAX_AUDIO_BYTES = 10 * 1024 * 1024
 
 export async function handleTranscribe(
-  req: { method: string; path: string; body: unknown; clientId: string },
+  req: { method: string; path: string; body: unknown },
   deps: ProxyDeps,
 ): Promise<ProxyReply> {
   const gate = preCallGate(req, deps, ALLOWED_PATHS, req.path)
@@ -25,3 +26,6 @@ export async function handleTranscribe(
   deps.meter.recordError('provider_down')
   return err(503, 'provider_down', 'transcribe shell: mic wiring is item 12')
 }
+
+/** Pages Function entry point. The handler above stays framework-free. */
+export const onRequestPost = museRoute(handleTranscribe)

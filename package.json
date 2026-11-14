@@ -18,6 +18,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:live": "vitest run --config vitest.live.config.ts",
+    "test:ai": "node tools/ai-eval/run-golden.mjs",
+    "test:ai:live": "node tools/ai-eval/run-live.mjs",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "verify": "tsc -b && vitest run && vite build",
     "gate": "node --no-deprecation tools/completion-gate.mjs",

@@ -49,10 +49,14 @@ a composite score, and there is no payment integration anywhere in `src/`.
 
 The strongest stewardship property here is not organisational, it is technical:
 
-**The product has no server.** There is no database, no account system, no
-analytics, no search logging and no runtime backend. The whole tool is static
-files on a CDN. The Census API key is the visitor's own, stored in their browser
-and never sent anywhere.
+**The housing data path has no server.** There is no database, no account
+system, no analytics and no search logging. The Census API key is the visitor's
+own, stored in their browser and never sent anywhere. The one server-side
+component is the optional Muse layer's proxy: a handful of Pages Functions that
+relay model requests and hold request counters, with no storage binding and no
+record of what anyone searched for. The rest of the tool is static files on a
+CDN. This section said "the product has no server" until 2026-11-11, which the
+deployed functions had already made untrue.
 
 That means nobody — including whoever runs the deployment — can:
 

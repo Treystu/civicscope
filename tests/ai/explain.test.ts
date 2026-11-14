@@ -14,7 +14,7 @@ function deps(handler: Partial<MuseProvider> = {}) {
 }
 
 function req(body: unknown) {
-  return { method: 'POST', path: '/api/muse/explain', body, clientId: 'c1' }
+  return { method: 'POST', path: '/api/muse/explain', body }
 }
 
 describe('explain route', () => {
@@ -170,9 +170,9 @@ describe('explain route', () => {
 
   it('returns budget_exhausted after the cap is settled', async () => {
     const meter = new Meter({ ...defaultMeterConfig(), budgetCapMicroUsd: 100 })
-    const id = meter.reserve('c1', 100, 10)
+    const id = meter.reserve(100, 10)
     expect(id).not.toBeNull()
-    meter.settle(id as string, 'c1', 100, 10, 10)
+    meter.settle(id as string, 100, 10, 10)
     const d = { meter, provider: createStubProvider(), allowedModels: ['spark-test'] }
     const r = await handleExplain(req({ figureSetId: 'f1', values: VALUES }), d)
     expect(r.status).toBe(429)

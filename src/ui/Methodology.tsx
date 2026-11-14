@@ -3,6 +3,8 @@ import { SCORE_RULES, SCORE_VERSION } from '../core/scoring'
 import { CENSUS_ATTRIBUTION } from '../core/censusKey'
 import { METRIC_DEFS_BY_KEY, METRIC_KEYS, tableOfMetric, VINTAGE } from '../core/plugins/acs'
 import { isSortableMetricKey } from '../core/sortable-surface'
+import { DiagnosticsPanel } from './ai/DiagnosticsPanel'
+import { MethodAiSection } from './ai/MethodAiSection'
 
 /**
  * The methodology page is generated from the plugin registry and the scoring
@@ -56,6 +58,11 @@ export function Methodology() {
             to Census.gov.
           </li>
           <li>
+            This site is deployed with the project&rsquo;s own shared Census application key, so the full dataset
+            works with no setup. That key identifies the application, not you, and a key you add yourself
+            replaces it.
+          </li>
+          <li>
             Saved comparisons and display preferences stay in this browser. CivicScope does not receive them or
             keep a search history.
           </li>
@@ -66,6 +73,24 @@ export function Methodology() {
           <li>No accounts, analytics, advertising, third-party scripts, or cookies.</li>
         </ul>
       </section>
+
+      {/*
+        F7 diagnostics live on the page a reader visits to understand what the
+        product does. The panel records counts only, and the export is rebuilt
+        from validated scalars so it cannot carry a question or a key.
+      */}
+      <DiagnosticsPanel />
+
+      {/*
+        The assistant section is its own component because section 3.5 of the
+        plan requires it to be generated from registry and code inputs rather
+        than hand-written prose. Keeping it inline is how the previous version
+        drifted: the paragraph asserted a mechanism the reader could not check
+        against anything. The component reads METRIC_KEYS, the mode union, the
+        validator's failure union, the disclosure constant and the model id, so
+        a change to any of them changes this text or fails the suite.
+      */}
+      <MethodAiSection />
 
       <section aria-labelledby="stewardship-heading">
         <h2 id="stewardship-heading" className="section-title">
@@ -169,8 +194,9 @@ export function Methodology() {
                     {p.legal.notice && <p className="mt-1 text-xs italic text-slate-600">{p.legal.notice}</p>}
                     {p.legal.suppressBelow !== undefined && (
                       <p className="mt-1 text-xs text-slate-600">
-                        Figures below {p.legal.suppressBelow} in a count unit are withheld to protect
-                        small-population privacy.
+                        Figures below {p.legal.suppressBelow} in a count unit are withheld because a
+                        median over that few people is dominated by one household, and a count that small
+                        can identify them.
                       </p>
                     )}
                     {p.legal.protectedClassProxy && (

@@ -110,10 +110,14 @@ export function SimilarityPanel({
   explainProvider?: MuseProvider
   initialOriginZip?: string
 }) {
-  const [enabled, setEnabled] = useState(() => flagOn())
+  // An explicit Ask similarity intent is a request for this ranking, which is the
+  // condition the off-by-default rule exists to require. Seeding the panel that
+  // way opens it for this visit without flipping the stored default.
+  const [enabled, setEnabled] = useState(() => flagOn() || /^\d{5}$/.test(initialOriginZip))
   const [weights, setWeights] = useState<Weights>(() => storedWeights())
   const [cutoff, setCutoff] = useState<number>(() => storedCutoff())
   const [originZip, setOriginZip] = useState(() => /^\d{5}$/.test(initialOriginZip) ? initialOriginZip : '')
+  const [open, setOpen] = useState(() => /^\d{5}$/.test(initialOriginZip))
   const [explainZip, setExplainZip] = useState<string | null>(null)
 
   function persistEnabled(on: boolean) {
@@ -177,7 +181,11 @@ export function SimilarityPanel({
     : []
 
   return (
-    <details className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+    <details
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+      className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3"
+    >
       <summary className="min-h-[44px] cursor-pointer text-sm font-medium text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900">
         Find similar ZIP codes {enabled ? '' : '(off by default)'}
       </summary>

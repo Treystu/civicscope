@@ -66,7 +66,30 @@ Not ported, by recorded decision: the workbench onboarding files
 no port issue and imported by nothing in the queue - and the workbench
 planning documents (house-plan.md, civicscope-audit.md).
 
-Still open at submission time, by design: Pages Functions deploy wiring
-and the per-client cap value are S10; the Explain claim count is S11/S12;
-the privacy copy above is a draft pending final sign-off. The Ask shell
-mount and stub-provider wiring landed in PR #50 at aab2c87.
+Pages Functions deploy wiring is demonstrated on a preview deployment
+(`submission` branch, lane head `35d931a`, deployment `1cb4c184`, 2026-10-30): the three POST
+`/api/muse/*` routes answer from the served build, and the only missing
+ingredient there is the shared key. A fourth GET route,
+`/api/muse/diagnostics`, reports status and is deployed there too. Getting that
+build onto the production
+alias still needs the owner's merge to `main` plus a manual `npm run deploy`;
+see `docs/submission-path-deploy.md`. The per-client cap value remains S10 and
+unset, and the ramification is recorded here rather than left implicit: with no
+per-client cap, the only ceiling on any one visitor is the judging-window cap of
+$52.50 (`JUDGING_CAP_MICRO_USD`), and because the meter's counters live in the
+isolate (`meterPersistence: 'isolate'`), that ceiling is per isolate rather than
+global, so a burst spread across isolates multiplies it. The diagnostics route
+states which case applies rather than leaving a reader to infer it:
+`perClientCap: 'unset'`. Setting a value is an owner decision with a cost basis;
+issue #55 records the absence, not a chosen number. The Explain claim count is S11/S12; the privacy copy above is a draft
+pending final sign-off and checked against the shipped config in
+`docs/privacy-verification-checklist.md`. The Ask shell mount and stub-provider wiring landed in
+PR #50 at aab2c87.
+
+## Correction, 2026-11-14: per-client cap removed
+
+The 2026-10-28 section above says the per-client cap value remains S10 and unset.
+That is no longer the shipped state. K3 (2026-11-13) settles the meter as
+accounting-only with one pool-wide shutoff, so the per-client capability was
+removed from the code rather than left unset, and the diagnostics payload no
+longer carries a cap field (issue #83).

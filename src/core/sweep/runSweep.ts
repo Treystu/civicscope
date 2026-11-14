@@ -7,7 +7,7 @@
  * it, a resume skips everything already fetched.
  */
 
-import { getCensusKey } from '../censusKey'
+import { resolveCensusKey } from '../censusKey'
 import { manifestStore, sweepCache } from '../cache'
 import { budgetState, QuotaExhaustedError } from '../ratelimit'
 import { areaRowFromRaw, sanitiseAreaRow, SCREEN_VARS, type AreaRow } from '../plugins/acs'
@@ -102,7 +102,10 @@ export async function runSweep(options: {
   onProgress?: (progress: SweepProgress) => void
 }): Promise<{ rows: AreaRow[]; manifest: SweepManifest }> {
   const scope = options.scope ?? { states: [] }
-  const censusKey = getCensusKey()
+  // The visitor's own key when they have added one, otherwise the
+  // deployment's shared application key (see resolveCensusKey). The error
+  // below is unchanged: with neither, the sweep still cannot run.
+  const censusKey = resolveCensusKey()?.key
   if (!censusKey) throw new Error('a Census API key is required to load the country-wide screen')
 
   const signal = options.signal

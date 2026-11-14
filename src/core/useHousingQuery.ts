@@ -7,7 +7,7 @@ import { runSweep, type SweepProgress, type SweepScope } from './sweep/runSweep'
 import { CHUNK_SIZE, groupByState, listAllZctas, type ZctasByPrefix } from './sweep/chunk'
 import { describeScope, estimateChunks, stateOptions, toggleState, type StateOption } from './sweep/states'
 import { formatPlace, geocode } from './geocode'
-import { getCensusKey, CENSUS_KEY_EVENT } from './censusKey'
+import { resolveCensusKey, CENSUS_KEY_EVENT, type CensusKeySource } from './censusKey'
 import { sweepCache } from './cache'
 import { getQuota, onQuotaChange, type QuotaState } from './http'
 import { scoreBoth, type Composite } from './scoring'
@@ -39,9 +39,23 @@ export interface QueryState {
   sweepFromCache: boolean
   selected: ResolvedPlace[]
   drilldowns: Record<string, DrillState>
+  /** True when a Census key is in effect, from either source. */
   censusKeyPresent: boolean
+  /**
+   * Which source the effective key came from. Copy that talks about "your
+   * key" must key off this, never off censusKeyPresent alone: a 'shared'
+   * default is the deployment's application key, not a key the visitor
+   * added, and no surface may claim otherwise.
+   */
+  censusKeySource: CensusKeySource | undefined
   quota: QuotaState
   zoom: ZoomLevel
+}
+
+/** The key-derived slice of state, recomputed wherever the key may have changed. */
+function keyState(): Pick<QueryState, 'censusKeyPresent' | 'censusKeySource'> {
+  const resolved = resolveCensusKey()
+  return { censusKeyPresent: resolved !== undefined, censusKeySource: resolved?.source }
 }
 
 const initial: QueryState = {
@@ -52,7 +66,7 @@ const initial: QueryState = {
   sweepFromCache: false,
   selected: [],
   drilldowns: {},
-  censusKeyPresent: Boolean(getCensusKey()),
+  ...keyState(),
   quota: getQuota(),
   zoom: 2,
 }
@@ -73,18 +87,21 @@ export function useHousingQuery() {
    * The previous implementation issued one wildcard request for every ZCTA,
    * which is roughly 34x the number of geographies the Census API accepts in a
    * single call. It failed or timed out. It is now chunked at the measured
-   * ceiling of 1,000 ZCTAs per request, with each chunk cached independently,
+   * ceiling of 800 ZCTAs per request (CHUNK_SIZE in src/core/sweep/chunk.ts), with each chunk cached independently,
    * so a dropped connection costs one chunk rather than the whole load.
    */
   const loadSweep = useCallback(async (scope: SweepScope = { states: [] }) => {
-    if (!getCensusKey()) {
-      setState((s) => ({ ...s, sweepStatus: 'needs-key', censusKeyPresent: false }))
+    // Either source unlocks the sweep: the visitor's own key, or the shared
+    // application key the deployment supplied. Only with neither does the
+    // sweep stay in its needs-key state.
+    if (!resolveCensusKey()) {
+      setState((s) => ({ ...s, sweepStatus: 'needs-key', censusKeyPresent: false, censusKeySource: undefined }))
       return
     }
     sweepAbort.current?.abort()
     const ctrl = new AbortController()
     sweepAbort.current = ctrl
-    setState((s) => ({ ...s, sweepStatus: 'loading', censusKeyPresent: true, sweepError: undefined }))
+    setState((s) => ({ ...s, sweepStatus: 'loading', ...keyState(), sweepError: undefined }))
 
     try {
       const { rows, manifest } = await runSweep({
@@ -136,7 +153,7 @@ export function useHousingQuery() {
         },
       }))
 
-      const key = getCensusKey()
+      const key = resolveCensusKey()?.key
 
       drillAbort.current[zcta]?.abort()
       const ctrl = new AbortController()
@@ -146,7 +163,9 @@ export function useHousingQuery() {
       // district lookup, the CDC PLACES measures, and the per-state school
       // plugins are all keyless, so returning early when the key is absent
       // silently discarded all of them. The key is passed through as optional
-      // and only the key-requiring plugins are skipped by the executor.
+      // and only the key-requiring plugins are skipped by the executor. The
+      // key itself is the resolved one — the visitor's own when they have
+      // added one, otherwise the deployment's shared application key.
       const ctx: QueryContext = { geo: place, zoom: 4, censusKey: key, signal: ctrl.signal }
       const signal = ctrl.signal
 
@@ -273,10 +292,15 @@ export function useHousingQuery() {
     [selectPlace],
   )
 
-  // A newly saved key unlocks the sweep, which is the whole dataset.
+  // A newly saved key unlocks the sweep, which is the whole dataset. The
+  // event only ever fires for the personal key's lifecycle — the shared
+  // default is a build-time constant and cannot change while the app runs —
+  // but resolution is recomputed here rather than assumed, so removing a
+  // personal key on a deployment that carries the shared key falls back to
+  // that key (and the sweep reloads on it) instead of dropping to no key.
   useEffect(() => {
     const onKeyChange = () => {
-      setState((s) => ({ ...s, censusKeyPresent: Boolean(getCensusKey()) }))
+      setState((s) => ({ ...s, ...keyState() }))
       void loadSweep()
     }
     window.addEventListener(CENSUS_KEY_EVENT, onKeyChange)

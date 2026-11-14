@@ -20,8 +20,11 @@
  * Backoff is handled in `http.ts`; this file owns pacing and budget.
  */
 
-const MIN_INTERVAL_MS = 400
-const MAX_CONCURRENCY = 2
+// Champion Audit #71 shipped these: the challenger met its margin offline
+// (21.0s vs 30.8s) and cleared the bounded live window on 2026-11-11 - 43 live
+// requests at 250ms/3 had zero 503s and finished 36.5% faster (11.6s vs 18.3s).
+const MIN_INTERVAL_MS = 250
+const MAX_CONCURRENCY = 3
 const DEFAULT_DAILY_BUDGET = 450
 
 export interface RateLimitConfig {
@@ -156,28 +159,18 @@ function pump(): void {
   next()
 }
 
+/** Reserves a concurrency slot. The interval is applied at start, in paced(). */
 async function acquire(): Promise<void> {
   if (budgetState().remaining <= 0) throw new QuotaExhaustedError(budgetState())
 
   if (active < config.maxConcurrency) {
     active += 1
-    // Enforce a minimum gap between starts, but do not serialise the body.
-    const wait = jitter(config.minIntervalMs) - (Date.now() - lastStartedAt)
-    if (wait > 0) await sleep(wait)
-    lastStartedAt = Date.now()
     return
   }
 
+  // The slot is reserved by pump(), so the waiter resumes holding it.
   await new Promise<void>((resolve) => {
-    queue.push(() => {
-      void (async () => {
-        const wait = jitter(config.minIntervalMs) - (Date.now() - lastStartedAt)
-        if (wait > 0) await sleep(wait)
-        lastStartedAt = Date.now()
-        // The slot was already reserved by pump(), so it is not claimed again.
-        resolve()
-      })()
-    })
+    queue.push(resolve)
     pump()
   })
 }
@@ -188,12 +181,57 @@ function release(): void {
 }
 
 /**
+ * Waits until this request may start, serialised so two slots freed at the same
+ * instant cannot both conclude they may go now.
+ *
+ * The start instant is deliberately NOT recorded here. It is recorded in
+ * `paced`, in the same synchronous block that invokes the request. Recording it
+ * inside this chain wrote the value one microtask - or, on a starved runner, one
+ * OS preemption - before the request actually began, so the interval was
+ * measured from a moment the request never started at. Head 4c833d0, verify job
+ * 62, failed `starts[i] - starts[i - 1]` being 0 against a 30ms interval on a
+ * commit that only edited a markdown file, and pipeline #11's verify job #32
+ * failed the same assertion: both are that hop being longer than the interval.
+ *
+ * The chain serialises the decision for the same reason it always did: two
+ * slots free at the same instant would otherwise both conclude they may start.
+ */
+let spacingChain: Promise<void> = Promise.resolve()
+
+function spaceOut(need: number): Promise<void> {
+  const next = spacingChain.then(async () => {
+    const wait = need - (Date.now() - lastStartedAt)
+    if (wait > 0) await sleep(wait)
+  })
+  // A failed spacing step must not poison every later request.
+  spacingChain = next.then(
+    () => undefined,
+    () => undefined,
+  )
+  return next
+}
+
+/**
  * Runs a request under the pacing rules: concurrency-capped, spaced, and
  * counted against the daily budget.
  */
 export async function paced<T>(fn: () => Promise<T>): Promise<T> {
   await acquire()
   try {
+    // One jittered interval per request, shared by the wait and the re-check, so
+    // the two cannot disagree about how much space this request was owed.
+    const need = jitter(config.minIntervalMs)
+    await spaceOut(need)
+    // Re-check against the clock as late as it can be checked. A timer that
+    // resumes late (a starved runner, a GC pause) leaves the gap short at the
+    // moment of the check, and sleeping the remainder is the only way to keep
+    // the promise that two requests did not start together.
+    for (;;) {
+      const gap = Date.now() - lastStartedAt
+      if (gap >= need) break
+      await sleep(Math.min(need - gap, 50))
+    }
+    lastStartedAt = Date.now()
     recordRequest()
     return await fn()
   } finally {
@@ -206,5 +244,6 @@ export function _resetPacing(): void {
   active = 0
   lastStartedAt = 0
   queue.length = 0
+  spacingChain = Promise.resolve()
   budget = { used: 0, day: today() }
 }

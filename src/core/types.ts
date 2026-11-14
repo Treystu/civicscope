@@ -146,7 +146,11 @@ export interface QueryContext {
   tractFips?: string[]
   /** Where the user has drilled down to. */
   zoom: ZoomLevel
-  /** Census API key, supplied by the user, held only in their browser. */
+  /**
+   * The Census API key in effect for this run: the visitor's own when they
+   * have added one (held only in their browser), otherwise the deployment's
+   * shared application key. See resolveCensusKey in censusKey.ts.
+   */
   censusKey?: string
   signal: AbortSignal
 }

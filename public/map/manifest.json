@@ -8,5 +8,10 @@
   "placeMappingZctas": 33791,
   "placeMappingCities": 28808,
   "placeMappingCounties": 4983,
-  "placeMappingBytes": 713412
+  "placeMappingBytes": 713412,
+  "countyMappingZctas": 33791,
+  "countyMappingCounties": 3211,
+  "countyMappingStraddleZips": 9790,
+  "countyMappingShareUnknown": 0,
+  "countyMappingBytes": 393357
 }

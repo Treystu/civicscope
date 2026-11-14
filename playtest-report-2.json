@@ -1,0 +1,147 @@
+{
+  "base": "http://127.0.0.1:8788",
+  "steps": [
+    {
+      "name": "lookup",
+      "ok": true,
+      "ms": 10723,
+      "value": {
+        "url": "http://127.0.0.1:8788/?z=90210",
+        "buttons": [
+          "How this works",
+          "Explore",
+          "Map",
+          "Methodology",
+          "Ask",
+          "Add to comparison",
+          "Get my free key",
+          "Not now",
+          "Save key",
+          "Remove",
+          "Where this number comes from",
+          "Where this number comes from",
+          "Where this number comes from",
+          "Where this number comes from",
+          "Where this number comes from",
+          "Where this number comes from",
+          "Where this number comes from",
+          "Where this number comes from",
+          "Where this number comes from",
+          "Where this number comes from",
+          "Save"
+        ],
+        "snap": "- link \"Skip to main content\":\n  - /url: \"#main\"\n- banner:\n  - heading \"CivicScope\" [level=1]\n  - paragraph: Every ZIP code in the US, from federal data, in your browser.\n  - button \"How this works\"\n  - navigation \"Primary\":\n    - list:\n      - listitem:\n        - button \"Explore\"\n      - listitem:\n        - button \"Map\"\n      - listitem:\n        - button \"Methodology\"\n- main:\n  - region \"Ask CivicScope\":\n    - heading \"Ask CivicScope\" [level=2]\n    - text: Ask in plain language\n    - note: Free-text Ask sends the words you type to the wording helper; this path cannot be answered from structured choices alone. The figures still come from CivicScope.\n    - textbox \"Ask in plain language\"\n    - button \"Ask\"\n    - note: Figures are CivicScope's (source and vintage shown with each figure). Wording is Muse Spark's. This is a reading of the shown figures, not an additional source.\n  - region \"Look up a ZIP code or a city\":\n    - heading \"Look up a ZIP code or a city\" [level=2]\n    - text: US ZIP code, or city and state\n    - combobox \"US ZIP code, or city and state\": \"90210\"\n    - paragraph: Search by five-digit US ZIP code, or by city and state. City suggestions come from the Census Bureau and list every ZIP code in the matched city.\n    - status\n    - button \"Add to comparison\"\n    - paragraph: A five-digit ZIP code goes straight to that area. A city name offers every ZIP code inside it, so you can pick the neighbourhood rather than whichever one comes first.\n    - status: A free Census key is needed to load the data.\n  - region \"Unlock the full housing and demographic dataset\":\n    - heading \"Unlock the full housing and demographic dataset\" [level=2]\n    - paragraph:\n      - text: The Census Bureau requires every app to hold a free API key so they can track usage. It takes about a minute, and\n      - strong: your key is stored only in this browser\n      - text: — it is never sent to us, and we keep no log of what you search for.\n    - list:\n      - listitem: Open the free Census key form in a new tab.\n      - listitem: Fill in three fields. You can leave the organisation as “Individual”.\n      - listitem: The key arrives by email. Paste it below.\n    - button \"Get my free key\"\n    - button \"Not now\"\n    - text: Already have a key? Paste it here\n    - textbox \"Already have a key? Paste it here\":\n      - /placeholder: e.g. 0123456789abcdef0123456789abcdef01234567\n    - button \"Save key\" [disabled]\n    - status\n  - region \"Comparing 1 area\":\n    - heading \"Comparing 1 area\" [level=2]\n    - article:\n      - heading \"90210Los Angeles, CA\" [level=3]\n      - button \"Remove\"\n      - heading \"Every figure, unmodified\" [level=4]\n      - heading \"Teachers in district\" [level=3]\n      - paragraph: 21,730\n      - button \"Where this number comes from\"\n      - heading \"Students per teacher\" [level=3]\n      - paragraph: \"19.32\"\n      - button \"Where this number comes from\"\n      - heading \"Enrolled students\" [level=3]\n      - paragraph: 419,929\n      - button \"Where this number comes from\"\n      - heading \"Schools in district\" [level=3]\n      - paragraph: \"785\"\n      - button \"Where this number comes from\"\n      - heading \"EPA walkability index at the ZIP point\" [level=3]\n      - paragraph: \"6.8\"\n      - button \"Where this number comes from\"\n      - heading \"Residential density (housing units per acre)\" [level=3]\n      - paragraph: \"1.2\"\n      - button \"Where this number comes from\"\n      - heading \"Five-category employment mix (index)\" [level=3]\n      - paragraph: \"0.69\"\n      - button \"Where this number comes from\"\n      - heading \"Weighted street-intersection density (per square mile)\" [level=3]\n      - paragraph: \"30.9\"\n      - button \"Where this number comes from\"\n      - heading \"Distance to nearest transit stop (meters)\" [level=3]\n      - paragraph: no valid data available here\n      - button \"Where this number comes from\"\n      - heading \"Jobs reachable within 45 minutes by car (weighted)\" [level=3]\n      - paragraph: 250,607\n      - button \"Where this number comes from\"\n      - paragraph: \"About school data here: district staffing and enrollment figures cover all 50 states. Near this location, the national source can show up to eight nearest public schools within 3 km with a reportable 2019 four-year graduation-rate midpoint; many records instead contain a published range, and missing or suppressed outcomes are omitted. NYC’s separate DOE directory still supplies named-school enrollment, graduation and attendance figures from 2018–19. Neither source is a school-quality rating.\"\n  - region \"Saved comparisons\":\n    - heading \"Saved comparisons\" [level=2]\n    - paragraph: Kept in this browser only. A saved comparison is a set of ZIP codes and nothing else — never an ordering or a filter.\n    - text: Name for this comparison\n    - textbox \"Name for this comparison\":\n      - /placeholder: Name these 1 areas\n    - button \"Save\"\n    - paragraph: Nothing saved yet. Select some areas above, then name the comparison to keep it.\n  - region \"This tool is free, and stays free\":\n    - heading \"This tool is free, and stays free\" [level=2]\n    - paragraph: CivicScope carries no advertising, sells no listings, and takes no payment for placement in any result. It runs on free hosting and free government data, so there is nothing for a sponsor to buy.\n    - paragraph: If it saved you time or answered a question you could not otherwise afford to answer, you can chip in towards hosting. These are voluntary gifts to the person who maintains it.\n    - list:\n      - listitem:\n        - link \"PayPal\":\n          - /url: https://www.paypal.me/LBallek\n      - listitem:\n        - link \"Venmo - @lucas-ballek\":\n          - /url: https://venmo.com/u/lucas-ballek\n      - listitem:\n        - link \"Cash App - $luball\":\n          - /url: https://cash.app/$luball\n    - paragraph: \"Contributions are voluntary gifts to an individual, not payment for a service, and are not tax-deductible. They buy nothing: no priority support, no guarantees, and no promise about future features. No contribution can change any figure, ranking or result on this site.\"\n    - paragraph:\n      - text: These links go to personal accounts, not to a public collective, so the balance is not published and the funds are the maintainer’s. That is a weaker guarantee than a collective would give, and it is stated here rather than implied away — see\n      - code: docs/governance.md\n      - text: for the full position.\n  - complementary \"How to read this data\":\n    - heading \"How to read this data\" [level=2]\n    - list:\n      - listitem:\n        - text: Every figure here describes a\n        - strong: Census-defined area\n        - text: — a ZIP code tabulation area or census tract. It does not describe any individual, household, property, or its occupants.\n      - listitem: These are survey estimates with margins of error. Small areas are less reliable than large ones, and each figure shows its own uncertainty.\n      - listitem: We show public statistical data and where it came from. The national list starts in ZIP code order; readers may sort it by one figure. That is not an overall ranking or a recommendation. We do not endorse neighborhoods or sell, broker, or refer listings. The selected-area view includes a limited affordability index with its inputs and weights; Similar ZIP search is optional and lists matches alphabetically. This tool is not legal advice.\n      - listitem: The federal Fair Housing Act prohibits housing discrimination based on race, color, national origin, religion, sex, disability, and familial status. State and local protections may also apply.\n    - paragraph: Equal Housing Opportunity\n    - paragraph: \"If you believe you have experienced housing discrimination, you can contact HUD, a HUD Fair Housing Assistance Program partner, or the Department of Justice:\"\n    - list:\n      - listitem:\n        - link \"U.S. Department of Housing and Urban Development\":\n          - /url: https://www.hud.gov/helping-americans/complaint-form\n      - listitem:\n        - link \"HUD Fair Housing Assistance Program state and local agencies\":\n          - /url: https://www.hud.gov/stat/fheo/partners-agencies\n      - listitem:\n        - link \"U.S. Department of Justice, Civil Rights Division\":\n          - /url: https://www.justice.gov/crt/housing-and-civil-enforcement-section\n      - listitem:\n        - link \"National Fair Housing Alliance\":\n          - /url: https://www.nafcponline.org/about-us/housing-discrimination-complaints/\n    - paragraph: HUD’s directory lists participating agencies. It is a starting point for local help, not a complete statement of the law in any state or city.\n- contentinfo:\n  - paragraph: CivicScope is free, open, and carries no advertising. It does not sell, broker, or refer listings and does not accept payment for placement in any result.\n  - paragraph: Data is fetched directly from its publishers by your browser. We operate no server that records your searches, and we hold no copy of the data.\n  - paragraph: This product uses the Census Bureau Data API but is not endorsed or certified by the Census Bureau. Geocoding by OpenStreetMap contributors (ODbL)."
+      }
+    },
+    {
+      "name": "explain-single-area",
+      "ok": true,
+      "ms": 4,
+      "value": {
+        "count": 0
+      }
+    },
+    {
+      "name": "ask-unkeyed",
+      "ok": true,
+      "ms": 10049,
+      "value": {
+        "url": "http://127.0.0.1:8788/?z=90210",
+        "text": "Ask CivicScope\nAsk in plain language\n\nFree-text Ask sends the words you type to the wording helper; this path cannot be answered from structured choices alone. The figures still come from CivicScope.\n\nAsk\n\nThe wording helper is not responding right now. You can still search, filter, and read every figure by hand below, with the same figures.\n\nManual search is fully available: you can pick places and measures, set filters, and read every figure with its source — the same figures the helper would use.\n\nFigures are CivicScope's (source and vintage shown with each figure). Wording is Muse Spark's. This is a reading of the shown figures, not an additional source."
+      }
+    },
+    {
+      "name": "invalid-short",
+      "ok": true,
+      "ms": 2548,
+      "value": {
+        "text": "Look up a ZIP code or a city\nUS ZIP code, or city and state\n\nSearch by five-digit US ZIP code, or by city and state. City suggestions come from the Census Bureau and list every ZIP code in the matched city.\n\nAdd to comparison\n\nA five-digit ZIP code goes straight to that area. A city name offers every ZIP code inside it, so you can pick the neighbourhood rather than whichever one comes first.\n\nNo US city or ZIP code matches \"12\". This tool covers United States data only — there are about 33,800 ZIP codes.\n\nA free Census key is needed to load the data.",
+        "url": "http://127.0.0.1:8788/?z=90210"
+      }
+    },
+    {
+      "name": "invalid-letters",
+      "ok": true,
+      "ms": 2550,
+      "value": {
+        "text": "Look up a ZIP code or a city\nUS ZIP code, or city and state\n\nSearch by five-digit US ZIP code, or by city and state. City suggestions come from the Census Bureau and list every ZIP code in the matched city.\n\n1 suggestion available.\n\nBabcock, WI\n1 ZIP code\nAdd to comparison\n\nA five-digit ZIP code goes straight to that area. A city name offers every ZIP code inside it, so you can pick the neighbourhood rather than whichever one comes first.\n\nBabcock, WI\nClose\n\n1 ZIP code in this city. Choose one to add it to the comparison.\n\n54413\n\nA free Census key is needed to load the data.",
+        "url": "http://127.0.0.1:8788/?z=90210"
+      }
+    },
+    {
+      "name": "empty-zip",
+      "ok": true,
+      "ms": 6017,
+      "value": {
+        "text": "Look up a ZIP code or a city\nUS ZIP code, or city and state\n\nSearch by five-digit US ZIP code, or by city and state. City suggestions come from the Census Bureau and list every ZIP code in the matched city.\n\nAdd to comparison\n\nA five-digit ZIP code goes straight to that area. A city name offers every ZIP code inside it, so you can pick the neighbourhood rather than whichever one comes first.\n\nA free Census key is needed to load the data.\n\n\"00000\" is not a US ZIP code. This tool covers United States data only — there are about 33,800 of them.",
+        "url": "http://127.0.0.1:8788/?z=90210"
+      }
+    },
+    {
+      "name": "long-query",
+      "ok": true,
+      "ms": 2047,
+      "value": {
+        "length": 600,
+        "url": "http://127.0.0.1:8788/?z=90210"
+      }
+    },
+    {
+      "name": "map-tab",
+      "ok": true,
+      "ms": 6060,
+      "value": {
+        "url": "http://127.0.0.1:8788/?z=90210",
+        "snap": "- link \"Skip to main content\":\n  - /url: \"#main\"\n- banner:\n  - heading \"CivicScope\" [level=1]\n  - paragraph: Every ZIP code in the US, from federal data, in your browser.\n  - button \"How this works\"\n  - navigation \"Primary\":\n    - list:\n      - listitem:\n        - button \"Explore\"\n      - listitem:\n        - button \"Map\"\n      - listitem:\n        - button \"Methodology\"\n- main:\n  - region \"Look up a ZIP code or a city\":\n    - heading \"Look up a ZIP code or a city\" [level=2]\n    - text: US ZIP code, or city and state\n    - combobox \"US ZIP code, or city and state\": \"999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999\"\n    - paragraph: Search by five-digit US ZIP code, or by city and state. City suggestions come from the Census Bureau and list every ZIP code in the matched city.\n    - status\n    - button \"Add to comparison\"\n    - paragraph: A five-digit ZIP code goes straight to that area. A city name offers every ZIP code inside it, so you can pick the neighbourhood rather than whichever one comes first.\n    - alert: No US city or ZIP code matches \"999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999\". This tool covers United States data only — there are about 33,800 ZIP codes.\n    - status\n    - alert: \"\\\"00000\\\" is not a US ZIP code. This tool covers United States data only — there are about 33,800 of them.\"\n  - region \"Unlock the full housing and demographic dataset\":\n    - heading \"Unlock the full housing and demographic dataset\" [level=2]\n    - paragraph:\n      - text: The Census Bureau requires every app to hold a free API key so they can track usage. It takes about a minute, and\n      - strong: your key is stored only in this browser\n      - text: — it is never sent to us, and we keep no log of what you search for.\n    - list:\n      - listitem: Open the free Census key form in a new tab.\n      - listitem: Fill in three fields. You can leave the organisation as “Individual”.\n      - listitem: The key arrives by email. Paste it below.\n    - button \"Get my free key\"\n    - button \"Not now\"\n    - text: Already have a key? Paste it here\n    - textbox \"Already have a key? Paste it here\":\n      - /placeholder: e.g. 0123456789abcdef0123456789abcdef01234567\n    - button \"Save key\" [disabled]\n    - status\n  - paragraph: Add a free Census key above to load every ZIP code, then the map draws them.\n  - region \"This tool is free, and stays free\":\n    - heading \"This tool is free, and stays free\" [level=2]\n    - paragraph: CivicScope carries no advertising, sells no listings, and takes no payment for placement in any result. It runs on free hosting and free government data, so there is nothing for a sponsor to buy.\n    - paragraph: If it saved you time or answered a question you could not otherwise afford to answer, you can chip in towards hosting. These are voluntary gifts to the person who maintains it.\n    - list:\n      - listitem:\n        - link \"PayPal\":\n          - /url: https://www.paypal.me/LBallek\n      - listitem:\n        - link \"Venmo - @lucas-ballek\":\n          - /url: https://venmo.com/u/lucas-ballek\n      - listitem:\n        - link \"Cash App - $luball\":\n          - /url: https://cash.app/$luball\n    - paragraph: \"Contributions are voluntary gifts to an individual, not payment for a service, and are not tax-deductible. They buy nothing: no priority support, no guarantees, and no promise about future features. No contribution can change any figure, ranking or result on this site.\"\n    - paragraph:\n      - text: These links go to personal accounts, not to a public collective, so the balance is not published and the funds are the maintainer’s. That is a weaker guarantee than a collective would give, and it is stated here rather than implied away — see\n      - code: docs/governance.md\n      - text: for the full position.\n  - complementary \"How to read this data\":\n    - heading \"How to read this data\" [level=2]\n    - list:\n      - listitem:\n        - text: Every figure here describes a\n        - strong: Census-defined area\n        - text: — a ZIP code tabulation area or census tract. It does not describe any individual, household, property, or its occupants.\n      - listitem: These are survey estimates with margins of error. Small areas are less reliable than large ones, and each figure shows its own uncertainty.\n      - listitem: We show public statistical data and where it came from. The national list starts in ZIP code order; readers may sort it by one figure. That is not an overall ranking or a recommendation. We do not endorse neighborhoods or sell, broker, or refer listings. The selected-area view includes a limited affordability index with its inputs and weights; Similar ZIP search is optional and lists matches alphabetically. This tool is not legal advice.\n      - listitem: The federal Fair Housing Act prohibits housing discrimination based on race, color, national origin, religion, sex, disability, and fam"
+      }
+    },
+    {
+      "name": "methodology",
+      "ok": true,
+      "ms": 2545,
+      "value": {
+        "url": "http://127.0.0.1:8788/?z=90210",
+        "headings": [
+          "CivicScope",
+          "How CivicScope works",
+          "What we collect",
+          "Who owns this",
+          "Every figure, and what it means",
+          "Data sources",
+          "Cost",
+          "Health",
+          "Education",
+          "Environment",
+          "How the indices are calculated",
+          "Fair housing commitments",
+          "Attribution"
+        ]
+      }
+    },
+    {
+      "name": "reload-mid-ask",
+      "ok": true,
+      "ms": 6745,
+      "value": {
+        "text": "Ask CivicScope\nAsk in plain language\n\nFree-text Ask sends the words you type to the wording helper; this path cannot be answered from structured choices alone. The figures still come from CivicScope.\n\nAsk\n\nFigures are CivicScope's (source and vintage shown with each figure). Wording is Muse Spark's. This is a reading of the shown figures, not an additional source."
+      }
+    }
+  ],
+  "console": [
+    "error: Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "error: Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+  ],
+  "pageErrors": [],
+  "api": [
+    {
+      "status": 503,
+      "method": "POST",
+      "url": "/api/muse/intent"
+    },
+    {
+      "status": 503,
+      "method": "POST",
+      "url": "/api/muse/intent"
+    }
+  ]
+}

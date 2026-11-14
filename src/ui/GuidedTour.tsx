@@ -101,7 +101,7 @@ export function GuidedTour({ open, onDismiss }: { open: boolean; onDismiss: () =
         <>
           <p>
             The key is stored only in this browser and is sent only to the Census Bureau. Nobody running this
-            site can see it, and there is no server here that could: the whole product is static files on a
+            site can see it, and there is no server here that could: the data path is static files on a
             content delivery network.
           </p>
           <p>

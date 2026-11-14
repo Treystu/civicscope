@@ -45,7 +45,22 @@ function isNetworkNoise(err: unknown): boolean {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-export function withNetworkRetry<T>(name: string, body: () => Promise<T>, attempts = 3): () => Promise<T> {
+/**
+ * Transport-only retry with exponential backoff.
+ *
+ * Four attempts, not three, because three attempts spanned about 4.5 seconds of
+ * waiting in total - shorter than a single stalled connection can take to fail -
+ * and a container whose egress blinks for a few seconds produced five failures
+ * in one gate run on head 4faa05d while the dedicated live-contracts job for that
+ * same commit passed every one of them. The window is now about 10.5 seconds
+ * (1.5s, 3s, 6s), still short enough that a genuinely unreachable upstream fails
+ * the gate rather than hanging it.
+ *
+ * The attempt count is the only thing that changed. An assertion error is still
+ * never retried and a non-network error still throws on the first attempt, so a
+ * real drift or a wrong figure cannot be retried into a pass.
+ */
+export function withNetworkRetry<T>(name: string, body: () => Promise<T>, attempts = 4): () => Promise<T> {
   return async () => {
     let last: unknown
     for (let i = 1; i <= attempts; i++) {
@@ -60,7 +75,7 @@ export function withNetworkRetry<T>(name: string, body: () => Promise<T>, attemp
               `This is a connectivity problem, not a data-integrity failure. Last error: ${(err as Error)?.message}`,
           )
         }
-        await sleep(1500 * i)
+        await sleep(1500 * 2 ** (i - 1))
       }
     }
     throw last

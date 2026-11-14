@@ -1,0 +1,122 @@
+/**
+ * POST /api/muse/briefing — same-origin proxy route (F6, plan 6.5.5).
+ * Same discipline as the explain route: shape validation, closed
+ * allowlist, meter reservation/settlement, breaker, hard shutoff. The
+ * figures in the body were re-verified against their SourceRefs by the
+ * client-side pack generator before this call; the model's prose is
+ * validator-gated here before it leaves, and a failed verdict returns
+ * a withholding flag, never the failed prose. Counts only; no bodies
+ * are stored (Q1).
+ */
+import {
+  MAX_BRIEFING_VALUES,
+  type BriefingRequest,
+} from '../../../src/core/ai/provider'
+import { isKnownFigureKey } from '../../../src/core/ai/intent-schema'
+import { realValidator, type FigureForValidation } from '../../../src/core/ai/validator'
+import { preCallGate, mapProviderError, err, type ProxyDeps, type ProxyReply } from '../../../src/server/muse-proxy'
+import { museRoute } from '../../../src/server/muse-adapter'
+
+const ALLOWED_PATHS = new Set(['/api/muse/briefing'])
+const MAX_ID_CHARS = 128
+const EST_COST_MICRO = 1200
+const EST_TOKENS = 768
+const ACTUAL_COST_MICRO = 1200
+const ACTUAL_TOKENS_IN = 192
+const ACTUAL_TOKENS_OUT = 192
+
+const VALUE_FIELDS = new Set(['key', 'value', 'marginOfError'])
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function parseValues(raw: unknown): BriefingRequest['values'] | null {
+  if (!Array.isArray(raw)) return null
+  const values: BriefingRequest['values'] = []
+  for (const item of raw) {
+    if (!isRecord(item)) return null
+    if (Object.keys(item).some((key) => !VALUE_FIELDS.has(key))) return null
+    if (typeof item.key !== 'string' || !isKnownFigureKey(item.key)) return null
+    if (typeof item.value !== 'number' && item.value !== null) return null
+    if (typeof item.value === 'number' && !Number.isFinite(item.value)) return null
+    if (
+      item.marginOfError !== undefined &&
+      (typeof item.marginOfError !== 'number' || !Number.isFinite(item.marginOfError))
+    ) {
+      return null
+    }
+    values.push({
+      key: item.key,
+      value: item.value,
+      marginOfError: item.marginOfError,
+    })
+  }
+  return values
+}
+
+export async function handleBriefing(
+  req: { method: string; path: string; body: unknown },
+  deps: ProxyDeps,
+): Promise<ProxyReply> {
+  const gate = preCallGate(req, deps, ALLOWED_PATHS, req.path)
+  if (gate) return gate
+
+  const body = req.body as Record<string, unknown>
+  if (
+    typeof body.figureSetId !== 'string' ||
+    body.figureSetId.length === 0 ||
+    body.figureSetId.length > MAX_ID_CHARS
+  ) {
+    return err(400, 'shape_invalid', 'briefing needs figureSetId')
+  }
+  const values = parseValues(body.values)
+  if (!values) return err(400, 'shape_invalid', 'briefing needs values[]')
+  if (values.length > MAX_BRIEFING_VALUES) {
+    return err(400, 'shape_invalid', 'too many values')
+  }
+
+  const reservation = deps.meter.reserve(EST_COST_MICRO, EST_TOKENS)
+  if (!reservation) {
+    deps.meter.recordError('budget_exhausted')
+    return err(429, 'budget_exhausted')
+  }
+
+  try {
+    const result = await deps.provider.briefing(
+      { figureSetId: body.figureSetId, values },
+      new AbortController().signal,
+    )
+    deps.meter.settle(
+      reservation,
+      ACTUAL_COST_MICRO,
+      ACTUAL_TOKENS_IN,
+      ACTUAL_TOKENS_OUT,
+    )
+
+    if (typeof result.prose !== 'string') {
+      deps.meter.recordError('provider_down')
+      return err(502, 'provider_down', 'provider returned no prose')
+    }
+
+    const verdict = realValidator.validate(
+      result.prose,
+      values as FigureForValidation[],
+    )
+    if (!verdict.pass) {
+      // Local withhold diagnostic: count the failure class only.
+      deps.meter.recordError(verdict.failure)
+      return { status: 200, body: { withheld: true, failure: verdict.failure } }
+    }
+    return { status: 200, body: { prose: result.prose } }
+  } catch (e) {
+    deps.meter.release(reservation)
+    deps.meter.recordFailure()
+    const mapped = mapProviderError(e)
+    deps.meter.recordError(String(mapped.body.error))
+    return mapped
+  }
+}
+
+/** Pages Function entry point. The handler above stays framework-free. */
+export const onRequestPost = museRoute(handleBriefing)
