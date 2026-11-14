@@ -62,6 +62,23 @@ export function isDerivedKey(key: string): boolean {
   return key.startsWith(DERIVED_PREFIX)
 }
 
+/**
+ * The canonical name and key for the tenant share this module derives.
+ *
+ * Why this constant exists: `intent-schema.ts` keeps a closed set of derived
+ * figure keys the validator will accept, and until 2026-11-14 that set named
+ * `derived:renter_pct` while `deriveShare` named its output from whatever the
+ * caller passed - the arithmetic suite passes `renter_share`. So the accepted
+ * name was one no code emitted, and the name the arithmetic emits was one the
+ * validator refused as unknown. A caller wiring the two together would have
+ * produced a figure that failed validation for a reason with nothing to do with
+ * the arithmetic. Both sides now read the name from here, and a test pins them
+ * against each other.
+ */
+export const RENTER_SHARE_NAME = 'renter_share'
+
+export const RENTER_SHARE_KEY = `${DERIVED_PREFIX}${RENTER_SHARE_NAME}`
+
 function derivedKey(name: string): string {
   const trimmed = name.trim()
   if (!trimmed) throw new Error('a derived figure needs a name')

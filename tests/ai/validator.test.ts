@@ -68,8 +68,8 @@ describe('numeral scan and provenance (steps 1-3)', () => {
     expect(failure(v.validate('The share is thirty percent.', [{ key: 'median_rent_burden_pct', value: 33.3 }]))).toBe('invented_numeral')
   })
   it('passes word-form numerals that match a supplied figure', () => {
-    expect(v.validate('The renter share is forty-two percent.', [{ key: 'derived:renter_pct', value: 42 }]).pass).toBe(true)
-    expect(v.validate('The renter share is thirty percent.', [{ key: 'derived:renter_pct', value: 30 }]).pass).toBe(true)
+    expect(v.validate('The renter share is forty-two percent.', [{ key: 'derived:renter_share', value: 42 }]).pass).toBe(true)
+    expect(v.validate('The renter share is thirty percent.', [{ key: 'derived:renter_share', value: 30 }]).pass).toBe(true)
   })
   it('allows citing a supplied margin of error', () => {
     expect(v.validate('The rent is 1200, plus or minus 50.', [{ key: 'median_gross_rent', value: 1200, marginOfError: 50 }]).pass).toBe(true)
@@ -122,7 +122,7 @@ describe('C01 renter derived percentage', () => {
     const figs: FigureForValidation[] = [
       { key: 'renter_occupied', value: 420 },
       { key: 'households', value: 1000 },
-      { key: 'derived:renter_pct', value: 42 },
+      { key: 'derived:renter_share', value: 42 },
     ]
     expect(v.validate('The renter share is 42 percent.', figs).pass).toBe(true)
   })
