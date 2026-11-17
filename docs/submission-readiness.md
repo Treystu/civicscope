@@ -65,8 +65,10 @@ not run is reported as not run.
 | 13 | Portal submission text drafted from shipped behaviour | **NOT DRAFTED** | Blocked on two owner inputs: the live URL the text must point at (row 10), and the Explain claimed-vs-stretch split, which this package must not settle silently |
 | 14 | Judging-evidence pack assembled from real artefacts | **DONE** (as an index) | The artefact table above is the pack's index; each entry names its path and state |
 | 15 | Impact evidence (consented testimonials, task records) | **NOT RUN** | Requires real users; no analytics or tracking collects it by design, so it is recruited and recorded by hand, owner-side |
-| 16 | Branch hygiene | **DONE** (measured, corrected 2026-11-14) | Eight `archive/20261021/*` refs exist on `origin`. `git cherry origin/main` does **not** report zero differences: it flags 7 of their 13 unique commits with no patch-equivalent, which is what a squash merge produces, not evidence of unmerged work. Checked by content instead: 37 of 40 sampled added lines are in `main` verbatim and the other three are there under variant wording (`tools/completion-gate.mjs:353,357,487`, `docs/CHANGELOG.md:61`). No ref holds content absent from `main`. Deleting the refs is parked on #31 as a destructive owner act |
+| 16 | Branch hygiene | **DONE** (measured, corrected 2026-11-14) | Eight `archive/20261021/*` refs exist on `origin`. `git cherry origin/main` does **not** report zero differences: re-measured by patch-id on 2026-11-17, it flags **9** of their **13** unique commits with no patch-equivalent (the earlier count of 7 was wrong; see the note under this table), which is what a squash merge produces, not evidence of unmerged work. Checked by content instead: 37 of 40 sampled added lines are in `main` verbatim and the other three are there under variant wording (`tools/completion-gate.mjs:353,357,487`, `docs/CHANGELOG.md:61`). No ref holds content absent from `main`. Deleting the refs is parked on #31 as a destructive owner act |
 | 17 | Standing owner call preserved, not settled | **DONE** | Rows 13 and 8 leave the Explain claim split and the onboarding run explicitly open |
+
+**Row 16 measurement note (2026-11-17).** Method: for each of the 13 commits reachable from the eight `archive/20261021/*` refs but not from `main`, compare its `git patch-id --stable` against the patch-ids of every commit reachable from `origin/main`. Four have an equivalent and nine do not: `6e5f502`, `2875dd7`, `0477fee`, `3a9f7e6`, `b851721`, `42499bc`, `9d956bd`, `8bd4519`, `bd6e55f`. The four with equivalents are `748ce9e`, `34a0129`, `add112c`, `5fad632`. Summed per ref, `git cherry` reports the same nine, so the earlier count of seven was an error rather than a different method. Row 16's conclusion still rests on the content check, not on this count.
 
 ## What must be true before this package can be submitted
 
@@ -79,5 +81,9 @@ not run is reported as not run.
 4. Row 8: the onboarding run, or the submission states agent onboarding ships
    as tested infrastructure with no independent run recorded.
 
-Nothing in this file claims any of those. Rows 1-7 and 14-17 are the parts that
-are done, and each points at the artefact that proves it.
+Nothing in this file claims any of those. Rows 1-7, 14, 16 and 17 are the parts
+that are done, and each points at the artefact that proves it. Row 15 is **NOT
+RUN**, not done: it needs recruited, consented impact evidence that no analytics
+collects by design, and this file's own launch framing names only rows 1-9, 14,
+16 and 17 as gates, so counting 15 among the finished rows would contradict the
+row itself.
