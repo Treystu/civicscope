@@ -110,8 +110,11 @@ no bodies, no query text, no IP addresses, no keys
 Each part of that is already the shipped behaviour, and each is checkable in the tree
 rather than by a judge's reading: no storage binding exists
 (`docs/privacy-verification-checklist.md`, "Storage bindings: None declared"), the
-proxy keeps no bodies (`functions/api/muse/shared.ts`), and the meter's totals are
-per-isolate integers (`src/core/ai/meter.ts`). Under B the two existing proofs carry
+proxy keeps no bodies (`functions/api/muse/briefing.ts` builds the provider call from
+`figureSetId` plus a closed `key`/`value`/`marginOfError` allowlist, so a top-level
+query text is never forwarded, and `src/server/muse-proxy.ts` states the same
+discipline for every route), and the meter's totals are per-isolate integers
+(`src/core/ai/meter.ts`). Under B the two existing proofs carry
 the restated clause, the gate is re-measured on the rail, and the outcome is whatever
 that measurement says - not an assumed pass.
 
