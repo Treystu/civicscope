@@ -46,9 +46,12 @@ The three jobs behind every reading above ran from the CI config on `main` (`cb9
 
 `requirements_met` is the mean of fourteen clause verdicts; `clause_7` is the clause
 whose requirement is false of the shipped system (`/api/muse/*` is a runtime backend,
-deliberately, so the provider key never reaches the browser). Across the eight
+deliberately, so the provider key never reaches the browser). Across the nine
 comparable runs above, `clause_7` read 0.45 to 0.61 and the overall number 77.9 to 79.7,
-against a frozen threshold of 99.
+against a frozen threshold of 99. The count is nine, not eight: this table carries nine
+rows and every one of them printed a `clause_7` reading, checked job by job at
+192/260/264/266/270/275/278/282/286. The excluded runs stay excluded and named - 272
+read 99/101 and 284 failed `live-contracts`.
 
 Two consequences, both already in `docs/clause-7-evidence-packet.md`:
 
