@@ -3,14 +3,15 @@
  * Shape validation, closed allowlist, token ceilings, meter
  * reservation/settlement, breaker, hard shutoff at cap. Counts only;
  * no bodies, query text, IPs, or keys are stored (Q1).
- * Framework-free handler so hermetic tests call it directly; the Pages
- * Function wrapper at port time is a thin adapter. The shared key lives
+ * Framework-free handler so hermetic tests call it directly; the onRequestPost
+ * export at the bottom is the thin HTTP adapter. The shared key lives
  * server-side only and is never sent to the browser.
  */
 import { validateIntent } from '../../../src/core/ai/intent-schema'
-import { preCallGate, mapProviderError, err, type ProxyDeps, type ProxyReply } from './shared'
+import { preCallGate, mapProviderError, err, type ProxyDeps, type ProxyReply } from '../../../src/server/muse-proxy'
+import { museRoute, type MuseEnv, type PagesContext } from '../../../src/server/muse-adapter'
 
-export type { ProxyDeps } from './shared'
+export type { ProxyDeps } from '../../../src/server/muse-proxy'
 
 const ALLOWED_PATHS = new Set(['/api/muse/intent'])
 const MAX_QUERY_CHARS = 500
@@ -18,7 +19,7 @@ const EST_TOKENS = 512
 const EST_COST_MICRO = 1000
 
 export async function handleIntent(
-  req: { method: string; path: string; body: unknown; clientId: string },
+  req: { method: string; path: string; body: unknown },
   deps: ProxyDeps,
 ): Promise<ProxyReply> {
   const gate = preCallGate(req, deps, ALLOWED_PATHS, req.path)
@@ -28,7 +29,7 @@ export async function handleIntent(
   if (typeof body.queryText === 'string' && body.queryText.length > MAX_QUERY_CHARS) {
     return err(400, 'shape_invalid', 'queryText exceeds ceiling')
   }
-  const reservation = deps.meter.reserve(req.clientId, EST_COST_MICRO, EST_TOKENS)
+  const reservation = deps.meter.reserve(EST_COST_MICRO, EST_TOKENS)
   if (!reservation) {
     deps.meter.recordError('budget_exhausted')
     return err(429, 'budget_exhausted')
@@ -51,7 +52,7 @@ export async function handleIntent(
       deps.meter.recordError(check.error)
       return { status: 422, body: { error: check.error, detail: check.detail } }
     }
-    deps.meter.settle(reservation, req.clientId, EST_COST_MICRO, 128, 64)
+    deps.meter.settle(reservation, EST_COST_MICRO, 128, 64)
     return { status: 200, body: { intent: check.intent } }
   } catch (e) {
     deps.meter.release(reservation)
@@ -61,3 +62,7 @@ export async function handleIntent(
     return mapped
   }
 }
+
+/** Pages Function entry point. The handler above stays framework-free. */
+export const onRequestPost = museRoute(handleIntent)
+export type { MuseEnv, PagesContext }

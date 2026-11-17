@@ -1,0 +1,121 @@
+version: 2.1
+
+# Port of .github/workflows/ci.yml, preserving its three jobs: verify,
+# live-contracts and completion-gate.
+#
+# Why this exists: on 2026-11-03 this repository transferred from an
+# organisation to a personal account. From that point GitHub Actions has
+# produced no runner for this repo at all: run 42004661559 on head a165b16
+# reports all three jobs completed in two seconds with `runner_name: ""` and
+# zero steps, and the same signature appears in a second repo on the same
+# account, so the fault is account-wide rather than in this workflow. A CI
+# surface that never starts cannot report on a head, which is why the gate read
+# moves here.
+#
+# What is deliberately unchanged: the three job names, and the commands each
+# one runs. A port that quietly changed what it measured would replace one kind
+# of unverifiable green with another.
+#
+# Secrets/variables this needs, set on the CircleCI project, never in this file:
+#   CENSUS_KEY        live-contracts. The data-integrity suite needs a real key;
+#                     without one those tests skip and the sentinel guarantee is
+#                     unverified, which is the opposite of passing.
+#   TYPESAFE_API_KEY  completion-gate. Its semantic (Jev) layer is skipped when
+#                     absent, so an unset key reports a deterministic-only gate
+#                     while looking green. Absent here for the same reason it is
+#                     absent from the transferred repo: organisation secrets did
+#                     not move with the transfer.
+#   GATE_SITE         optional; defaults to production below.
+
+executors:
+  node:
+    docker:
+      # -browsers variants carry the system libraries Playwright's Chromium and
+      # the axe audit need, so the port does not re-derive them with
+      # --with-deps on every run.
+      - image: cimg/node:20.19-browsers
+
+commands:
+  install_deps:
+    steps:
+      - restore_cache:
+          keys:
+            - npm-v1-{{ checksum "package-lock.json" }}
+      # `npm ci` is kept rather than a looser install: it fails when the
+      # lockfile and package.json disagree, which is the property the Actions
+      # job relied on.
+      - run:
+          name: Install
+          command: npm ci
+      - save_cache:
+          key: npm-v1-{{ checksum "package-lock.json" }}
+          paths:
+            - ~/.npm
+
+jobs:
+  verify:
+    executor: node
+    steps:
+      - checkout
+      - install_deps
+      # Same single command as Actions: typecheck, tests, production build.
+      - run:
+          name: Typecheck, build, unit and security tests
+          command: npm run verify
+          no_output_timeout: 10m
+
+  live-contracts:
+    executor: node
+    environment:
+      E2E_BASE_URL: http://127.0.0.1:4173
+    steps:
+      - checkout
+      - install_deps
+      - run:
+          name: Install Playwright browser
+          command: npx playwright install --with-deps chromium
+      # One test in this suite drives the real application in a real browser so
+      # every figure it shows can be compared against the Census Bureau cell by
+      # cell. A semantic review cannot catch a wrong number; this can.
+      - run:
+          name: Live API contract tests
+          command: |
+            npm run build:app
+            npx vite preview --port 4173 --strictPort --host 127.0.0.1 &
+            sleep 6
+            npx vitest run --config vitest.live.config.ts
+          no_output_timeout: 15m
+
+  completion-gate:
+    executor: node
+    steps:
+      - checkout
+      - install_deps
+      - run:
+          name: Install Playwright browser
+          command: npx playwright install --with-deps chromium
+      # GATE_EXPECT_DEPLOYED mirrors the Actions rule exactly: only a push to
+      # main must find production already serving this build. A pull request is
+      # legitimately not deployed, and deploys are a manual step, so requiring a
+      # deploy there would fail every PR for being correct.
+      - run:
+          name: Resolve gate environment
+          command: |
+            echo 'export SKIP_E2E=0' >> "$BASH_ENV"
+            echo "export GATE_SITE=${GATE_SITE:-https://civicscope.pages.dev}" >> "$BASH_ENV"
+            if [ "${CIRCLE_BRANCH}" = "main" ] && [ -z "${CIRCLE_PULL_REQUEST}" ]; then
+              echo 'export GATE_EXPECT_DEPLOYED=1' >> "$BASH_ENV"
+            else
+              echo 'export GATE_EXPECT_DEPLOYED=0' >> "$BASH_ENV"
+            fi
+      - run:
+          name: Completion gate
+          command: npm run gate
+          no_output_timeout: 15m
+
+workflows:
+  ci:
+    jobs:
+      - verify
+      - live-contracts
+      - completion-gate

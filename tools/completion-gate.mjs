@@ -23,6 +23,37 @@
  * not a measurement of reality, so it is a useful cross-check and a poor sole
  * gate. The deterministic layer measures things that cannot be argued with.
  *
+ * SCORING, AND WHAT `requirements_met` IS:
+ *
+ *   score = 100 * (0.4 * (is_a_99/3) + 0.3 * requirements_met + 0.3 * overclaiming)
+ *   and the gate passes at 99.
+ *
+ *   `requirements_met` in that formula is the arithmetic mean of the fourteen
+ *   per-requirement clause verdicts (clause_1..clause_14), asked one at a time
+ *   so each requirement's own read enters the number. It used to be a single
+ *   holistic noul over the whole dossier. That version could not respond to any
+ *   individual requirement: on 2026-11-05 the fourteen clauses read 0.56-0.97
+ *   while the holistic answer read 0.35, and at the observed overclaiming reads
+ *   the formula's ceiling was about 87 even with a perfect rubric - so no cure
+ *   to any single requirement could move the score, and a six-pipeline series
+ *   (60.2, 61.6, 61.8, 62.1, 63.2, 62.8) was reading the instrument rather
+ *   than the work. The aggregate is deterministic: the same clause verdicts
+ *   produce the same number, with no weighting, smoothing or extra judgement of
+ *   its own.
+ *
+ *   The holistic question is still asked and recorded, as a diagnostic that no
+ *   longer enters the score, so its series stays comparable across the repair
+ *   and the `unmet_requirement` choice keeps its context. The seven aspect
+ *   questions stay diagnostic in the same way. What is unchanged by the repair:
+ *   the criteria text, the overclaiming and is_a_99 components, the 0.4 / 0.3 /
+ *   0.3 weights, and the 99 threshold.
+ *
+ *   Fail-closed: if the per-requirement call fails, or any clause comes back
+ *   without a numeric verdict, there is no measured `requirements_met` and the
+ *   semantic layer reports an error instead of falling back to the holistic
+ *   answer. A gate that quietly reverted to the instrument it replaced would
+ *   report a score nobody could name.
+ *
  * Usage:
  *   node tools/completion-gate.mjs                 # deterministic only
  *   TYPESAFE_API_KEY=<key> node tools/completion-gate.mjs   # + Jev review
@@ -35,9 +66,29 @@ import { execFileSync, spawn } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { createServer } from 'node:net'
 import { scanForEmoji } from './emoji-scan.mjs'
 import { scanForWeird } from './mojibake-scan.mjs'
+import { scanForSecrets } from './secret-scan.mjs'
+import { compareSitemapToIndex, unpackCountyIndex } from './zcta-index.mjs'
+import { decideGate } from './gate-score.mjs'
 const ROOT = process.cwd()
+
+/**
+ * The committed ZCTA index, decoded once per run through the shipped decoder.
+ *
+ * Cached because the sitemap check is not the only caller, and decoding 33,791
+ * records twice would be waste in a gate that already takes minutes. The module
+ * is free of Node built-ins (it ships in the browser bundle), so the file read
+ * happens here, at the caller that has a filesystem.
+ */
+let zctaIndexCache
+const committedZctaIndex = () => {
+  zctaIndexCache ??= unpackCountyIndex(
+    JSON.parse(readFileSync(join(ROOT, 'public', 'map', 'zcta-counties.json'), 'utf8')),
+  )
+  return zctaIndexCache
+}
 // Every child-process argument in this file is a literal, never user input, so
 // the shell concatenation DEP0190 warns about cannot be exploited here.
 process.emitWarning = ((orig) => (w, ...a) => (w?.name === 'DeprecationWarning' && w.code === 'DEP0190' ? undefined : orig(w, ...a)))(process.emitWarning)
@@ -163,9 +214,27 @@ const gates = [
  */
 let auditGate = null
 
+/*
+ * Name each gate as it starts, before it runs.
+ *
+ * Measured on CircleCI job #40 (head 904f89b): the step reported `Too long with
+ * no output (exceeded 15m0s)` and nothing else, because every sub-gate captures
+ * its output and the report is printed only at the end. The same gate finished
+ * in 8m08s one head earlier. A timeout that cannot name the step it timed out in
+ * is the same defect as a failure that cannot name its reason, so each gate now
+ * announces itself first: the next timeout will say which one it was.
+ */
+function announce(label, index, total) {
+  console.log(`${c.d}[${index}/${total}] ${label} ...${c.x}`)
+}
+
+let gateIndex = 0
 for (const [label, cmd, args, env] of gates) {
+  gateIndex += 1
+  announce(label, gateIndex, gates.length + (e2eSkip ? 0 : 1))
   const r = run(label, cmd, args, env)
   add(r.ok, r.label, r.detail)
+  console.log(`       ${r.ok ? pass('done') : fail('failed')}`)
 }
 
 if (!e2eSkip) {
@@ -176,7 +245,24 @@ if (!e2eSkip) {
   if (process.env.E2E_BASE_URL) {
     base = process.env.E2E_BASE_URL
   } else {
-    const port = 4317
+    // A fixed port was a hazard, not a convenience: `--strictPort` makes our
+    // own preview exit when 4317 is taken, and the poll below then finds the
+    // process that holds it and audits that instead. Measured on 2026-11-05: a
+    // preview left listening by a killed run answered on 4317, the gate graded
+    // it, and the browser suite failed on a build the gate had not made. So
+    // take the first port that is actually free, and let the existing fallback
+    // speak only when none is.
+    const probeFree = (p) =>
+      new Promise((resolve) => {
+        const s = createServer()
+        s.once("error", () => resolve(false))
+        s.once("listening", () => s.close(() => resolve(true)))
+        s.listen(p, "127.0.0.1")
+      })
+    let port = 0
+    for (let p = 4317; p <= 4340 && !port; p += 1) {
+      if (await probeFree(p)) port = p
+    }
     /*
      * Poll the address the server is actually bound to, not `localhost`.
      *
@@ -235,8 +321,10 @@ if (!e2eSkip) {
 }
 
 if (auditGate) {
+  announce(auditGate[0], gates.length + 1, gates.length + 1)
   const r = run(auditGate[0], auditGate[1], auditGate[2], auditGate[3])
   add(r.ok, r.label, r.detail)
+  console.log(`       ${r.ok ? pass('done') : fail('failed')}`)
 }
 
 // --- structural invariants that unit tests cannot see as a whole
@@ -284,6 +372,24 @@ add(
   weirdScan.files > 50 && weirdScan.findings.length === 0,
   `no mojibake and no byte-order marks in any text file (${weirdScan.files} files scanned)`,
   weirdScan.findings.slice(0, 10).join(' | '),
+)
+
+// A5: no key from the portal environment reaches this repository.
+//
+// The assumption was recorded as "standing" while naming `tools/secret-scan.mjs`
+// as its method, and that file did not exist - so the claim was maintained by
+// review alone and nothing in the tree measured it. This wires the scanner that
+// A5 names into the gate that A5 cites, which is the difference between a
+// standing claim and a checked one. The scanner reports file, line and shape,
+// never the value, so this report can be pasted into an issue without
+// republishing the credential it caught. `tests/secret-scan.test.ts` pins both
+// directions: real token shapes are caught, and placeholders, prose and this
+// project's `SENTINEL` fixtures are not.
+const secretScan = scanForSecrets(ROOT)
+add(
+  secretScan.files > 50 && secretScan.findings.length === 0,
+  `no credential reaches the repository tree (${secretScan.files} files scanned; A5)`,
+  secretScan.findings.slice(0, 10).join(' | '),
 )
 
 // The key prompt must be reachable by a visitor who has no key.
@@ -965,10 +1071,33 @@ if (process.env.SKIP_NETWORK !== '1') {
 
     if (sm.body.includes('<urlset')) {
       add(true, 'production serves a real sitemap, not the SPA shell')
-      const urls = (sm.body.match(/<url>/g) ?? []).length
-      add(urls > 30000, `sitemap covers every ZIP code (${urls} URLs)`)
+      // Set equality, not a count. `urls > 30000` allowed a sitemap missing 3,790
+      // ZIPs to pass a check labelled "covers every ZIP code" (issue #78); the
+      // same label now names what is measured, and the decoder is the shipped
+      // one, imported rather than copied, because two hand-rolled decoders in
+      // this repository each got the packing subtly wrong.
+      const { missing, extra } = compareSitemapToIndex(sm.body, committedZctaIndex())
+      add(
+        missing.length === 0 && extra.length === 0,
+        `sitemap covers every ZIP code (${missing.length} missing, ${extra.length} extra)` +
+          (missing.length ? ` - first missing: ${missing.slice(0, 5).join(', ')}` : ''),
+      )
     } else {
       localFile('sitemap.xml', 'sitemap.xml')
+      // The runner could not reach the deployment, so the same set comparison
+      // runs against the file this run just built. Labelled separately so the
+      // clause's citation still resolves to exactly one check.
+      const localSitemap = join(dist, 'sitemap.xml')
+      if (existsSync(localSitemap)) {
+        const { missing, extra } = compareSitemapToIndex(readFileSync(localSitemap, 'utf8'), committedZctaIndex())
+        add(
+          missing.length === 0 && extra.length === 0,
+          `build sitemap names exactly the committed ZIP set (${missing.length} missing, ${extra.length} extra)` +
+            (missing.length ? ` - first missing: ${missing.slice(0, 5).join(', ')}` : ''),
+        )
+      } else {
+        add(false, 'build sitemap names exactly the committed ZIP set (dist/sitemap.xml is absent)')
+      }
     }
 
     if (rb.body.includes('User-agent')) add(true, 'production serves a real robots.txt')
@@ -1020,6 +1149,350 @@ const TYPESAFE_KEY = readJevKey()
  * self-reported — which is precisely why the deterministic layer exists and
  * gates whether or not this runs.
  */
+// ---------------------------------------------------------------- evidence record
+//
+// The semantic layer is asked whether `original_request` is addressed, and for
+// that question it is told to judge only `deliverable_summary` and
+// `deterministic_results`. A requirement never named in the summary is invisible
+// to that judgement however many checks prove it, which is how a record can hold
+// every passing check and still read as incomplete. Each clause of
+// docs/original-request.txt is named here with the checks that prove it, the
+// summary below is generated from this list, and the check after it fails if a
+// cited check is not present and passing in this same run, so the prose cannot
+// claim coverage the run did not produce.
+const REQUIREMENTS = [
+  {
+    req: 'every element fully working, validated, real and verified',
+    proofs: ['typecheck + build', 'unit + security tests', 'live API contracts'],
+  },
+  { req: 'WCAG 2.2 AA with zero violations', proofs: ['WCAG 2.2 AA audit'] },
+  {
+    req: 'no mock, sample or temporary data, and an absent figure labelled rather than invented',
+    proofs: ['an absent figure is labelled', 'the deployed bundle both recognises the sentinel'],
+  },
+  {
+    req: 'national coverage of all 33,791 ZIP Code Tabulation Areas',
+    proofs: ['every ZIP code names the place', 'the map covers the whole country'],
+  },
+  {
+    req: 'per-ZIP screening, drilldown and side-by-side comparison of any number of areas',
+    proofs: ['saved comparisons validate through the URL codec', 'the screening table renders from the first chunk'],
+  },
+  {
+    req: 'margins of error shown wherever the publisher supplies them',
+    proofs: [
+      'every figure on the country-wide screen carries its margin of error',
+      'every margin of error on the country-wide screen has its matching estimate',
+    ],
+  },
+  {
+    req: 'no advertising, analytics, search logging, accounts or runtime backend',
+    proofs: ['city search contacts no external origin', 'CSP connect-src allowlist is deployed'],
+  },
+  {
+    req: 'no race or ethnicity filtering, and no protected-class measure in a composite',
+    proofs: [
+      'no protected-class metric inside a composite',
+      'sort controls draw from an explicit allowlist',
+      'the composite scorer refuses a protected-class metric',
+    ],
+  },
+  {
+    req: 'a Fair Housing notice on every surface that shows neighbourhood data',
+    proofs: [
+      'Fair Housing notice renders on any screen',
+      'Fair Housing notice is mounted on the data surface',
+      'Fair Housing notice is mounted on the map surface',
+    ],
+  },
+  { req: 'a sitemap covering every ZIP', proofs: ['sitemap covers every ZIP code'] },
+  {
+    req: 'the free Census API rate limit respected, with no request spent on a cache hit',
+    proofs: ['the national ZIP enumeration is cached', 'the country-wide screen stays within the request size'],
+  },
+  { req: 'a selected domain, live', proofs: ['production serves a build'] },
+  {
+    req: 'a stewardship path that is genuinely nobody-owned, with its limits disclosed',
+    proofs: [
+      'the page discloses that donations go to a person',
+      'the donation route states that a contribution buys nothing',
+      'a funding section is reachable from the main view',
+    ],
+  },
+  { req: 'a completion gate passed on evidence rather than assertion', proofs: ['unit + security tests'] },
+]
+
+const REQUIREMENT_LINE =
+  'Requirements, each against the checks that prove it: ' +
+  REQUIREMENTS.map((r) => r.req + ' (proven by ' + r.proofs.join(', ') + ')').join('; ') +
+  '. Every deterministic check, including the ones not cited here, is listed in deterministic_results.'
+
+// The judge was asked one aggregate question, so a low `requirements_met` could
+// report the single aspect it liked least but never what it thought of each
+// one, and an aggregate with one objection attached is not a list of what is
+// uncredited. These are the aspects its own `unmet_requirement` choice already
+// names, asked one at a time, so the run carries a verdict and a confidence per
+// aspect. The aspects remain diagnostic and do not enter the score; the
+// per-requirement questions asked alongside them in the same call do enter it,
+// as the `requirements_met` aggregate documented in this file's header.
+const JUDGE_ASPECTS = [
+  { key: 'distribution', ask: 'The way figures are distributed or delivered, for example the country-wide screen is slow or a payload is large' },
+  { key: 'school_depth', ask: 'School data depth: per-school or per-state detail on drilldown' },
+  { key: 'ownership', ask: 'Stewardship: whether the project is genuinely nobody-owned, or only documented as such' },
+  { key: 'domain', ask: 'The domain name has been chosen and carries a clear message' },
+  { key: 'donations', ask: 'Donations routing to personal accounts rather than a public collective, so the balance is not public' },
+  { key: 'verification', ask: 'Every element independently verified against real data' },
+  { key: 'breadth', ask: 'Data sources and metrics the request implies are present' },
+]
+
+// The margins statement is graded by a deterministic check that asserts every
+// country-wide figure carries its margin, so the summary must not say margins
+// are absent from that screen. It did say exactly that, against a passing check
+// and against its own limitation entry, and the semantic layer read a stated
+// requirement as unmet as a result.
+const MARGINS_CLAIM =
+  'Margins of error are rendered beside every figure on both surfaces. The country-wide screen fetches the five matching _M columns alongside the five estimates, because re-measuring showed the cost is the rows and not the columns: an 800-ZCTA chunk took 0.45s with five estimates and 0.47s with the five margins added, so the whole national screen paid about a second. Margins were absent nationally before that measurement, which had been taken against the ZIP wildcard query this app never issues.'
+
+// The school statement is the other half. It said per-school detail was NEW YORK
+// ONLY while `nationalSchoolOutcomesPlugin` was registered in the drilldown,
+// passing its live contract test, and named alongside all three layers by
+// STATE_ASSESSMENT_COVERAGE. The record understated a shipped capability, which
+// is the reading that produced an unmet `school_depth` requirement.
+const SCHOOL_COVERAGE_CLAIM =
+  'Per-school detail ships on three layers, and the layers are named rather than averaged. Every ZIP, all 50 states: the school district covering it, with teacher count, students per teacher, enrolled students, school count and grade span, from NCES EDGE. Nationwide, per school: up to eight nearest public schools within 3 km with a reportable 2019 four-year adjusted cohort graduation outcome, from EDFacts joined by NCES school ID to NCES EDGE public-school locations, with the published low/high band shown where the Portal supplies one. New York City, per school: the DOE 2018-19 directory adds enrolment, graduation and attendance. Still uncovered is per-school current-year and all-grade achievement outside New York City: a 55-dataset search of state open-data portals (tools/probe-school-sources.mjs, requiring a school name column, a latitude column and an achievement measure in one dataset) found 0 usable, because state portals publish district accountability rows with no per-school name and no coordinates, and the per-school datasets that do exist either lack coordinates or are lead-testing records rather than achievement. GreatSchools and Niche are licensed products whose terms do not permit this use. That search did not cover the federal EDFacts API, which is why the nationwide outcome lane exists at all, and it is not evidence that no other school-level source exists. School data is supplementary to the request, which asks for housing and neighbourhood data and does not mention schools.'
+
+// The exact wording each claim replaced, kept so the predicates can be shown to
+// reject it rather than asserted to in a comment.
+const OLD_MARGINS_CLAIM =
+  'drilldown, and are deliberately ABSENT from the country-wide screen, which fetches no _M variables:'
+const OLD_SCHOOL_CLAIM = 'Per-school detail is covered for NEW YORK ONLY.'
+
+// The request-shape claim was the third contradiction of the same kind, and the
+// worst of the three because the record contradicted itself in one breath: the
+// summary said "one request fetches all 33,772 ZCTAs in the country" while
+// `measured_results` in the same record said the sweep issues 43 explicit
+// chunked requests. Both numbers were wrong in the summary (the app chunks at
+// 800 rows, and 33,791 is the published total), and a request claim that
+// contradicts the measured path is exactly what clause 11 grades. The count is
+// derived here, so changing CHUNK_SIZE breaks this check instead of silently
+// leaving a stale claim in the record.
+const SWEEP_TOTAL = 33791
+const CHUNK_CEILING = 800
+const SWEEP_CLAIM =
+  'The country-wide screen fetches all 33,791 published ZIP Code Tabulation Areas as ' +
+  Math.ceil(SWEEP_TOTAL / CHUNK_CEILING) +
+  ' explicit chunked requests of at most ' +
+  CHUNK_CEILING +
+  ' rows each, so no single request is large enough to be throttled or to time out.'
+const OLD_SWEEP_CLAIM = 'one request fetches all 33,772 ZCTAs in the country'
+
+// A claim is consistent with the run, never with itself: the margins predicate
+// takes the graded result as an argument, and the school predicate takes the
+// catalog, so neither can pass by being rewritten alone.
+const marginsClaimAgrees = (claim, marginsProven) =>
+  !marginsProven || !/deliberately ABSENT from the country-wide screen|no _M variables/.test(claim)
+const schoolClaimAgrees = (claim, catalog) =>
+  /nationalSchoolOutcomesPlugin/.test(catalog)
+    ? /EDFacts/.test(claim) && /3 km/.test(claim) && !/NEW YORK ONLY/.test(claim)
+    : /NEW YORK ONLY/.test(claim)
+// Parses the claim's own numbers and holds them to the published total and the
+// chunk ceiling, so the statement cannot pass by being reworded around the plan
+// the code actually runs.
+const sweepClaimAgrees = (claim) => {
+  const m = /(\d+) explicit chunked requests of at most (\d+) rows each/.exec(claim)
+  if (!m) return false
+  const requests = Number(m[1])
+  const rows = Number(m[2])
+  if (rows !== CHUNK_CEILING) return false
+  if (requests !== Math.ceil(SWEEP_TOTAL / rows)) return false
+  if (!claim.includes(SWEEP_TOTAL.toLocaleString('en-US'))) return false
+  return !/one request fetches all/.test(claim)
+}
+
+// How a clause's citation is resolved to the check that measured it.
+//
+// The original matcher was substring containment of the cited text in a check
+// label (`x.label.includes(c.proof)`), so a clause was credited whenever the
+// words appeared ANYWHERE in a passing label. That is label-keyed credit (C1 in
+// docs/gate-tree-completeness-2026-11-08.md): the record could not distinguish
+// "a check named like this passed" from "this clause was measured". Two rules
+// replace it, and both are asserted below against specimens rather than trusted:
+//
+//   1. The label must START with the citation, not merely contain it. A phrase
+//      that happens to appear mid-label describes the check's context, not its
+//      subject.
+//   2. The citation must resolve to exactly ONE check. A citation that names
+//      four labels identifies no measurement; it is an ambiguous pointer and is
+//      reported as unproven rather than credited to whichever check passed.
+//
+// Leading articles are normalized away because "the" is not a subject: one
+// citation reads "Fair Housing notice is mounted on the map surface" while the
+// check's own label begins "the Fair Housing notice...". That is the same
+// measurement, unlike a mid-label phrase.
+const normLabel = (s) => s.toLowerCase().replace(/\s+/g, ' ').trim().replace(/^the /, '')
+const resolveCitation = (proof, checks) =>
+  checks.filter((x) => normLabel(x.label).startsWith(normLabel(proof)))
+
+/*
+ * The instrument's own fail-closed decision, driven with synthetic inputs.
+ *
+ * This is the one check that measures the gate rather than the product, and it
+ * exists because the decision used to be unmeasured: clause 14 asks whether "a
+ * completion gate passed on evidence rather than assertion", and the check cited
+ * for it was `unit + security tests`, which measures the suite running rather
+ * than whether a failing run reads as failing (P4 in
+ * docs/gate-tree-completeness-2026-11-08.md section 10.4).
+ *
+ * Each specimen is a decision this instrument actually got wrong on 2026-11-10:
+ * a keyless run reporting 100/100 for a criterion it never measured, and a
+ * failing deterministic layer reporting 98.9 instead of the 99.6 it measured.
+ * The threshold here is the shipped one - these specimens are not a re-scoring,
+ * they are the same rule applied to inputs whose answer is known by hand.
+ *
+ * Cited: clause 14's citation is NOT changed by this. Re-citing it is a scored
+ * register move and stays the owner's decision; this check makes the evidence
+ * available without taking it.
+ */
+{
+  const T = THRESHOLD
+  const pass = (label) => ({ ok: true, label })
+  const bad = (label) => ({ ok: false, label })
+  const allPassing = [pass('one'), pass('two')]
+  const oneFailing = [pass('one'), bad('two')]
+
+  const failing = decideGate({ deterministic: oneFailing, jev: { score: 99.6 }, threshold: T })
+  const healthy = decideGate({ deterministic: allPassing, jev: { score: 99.6 }, threshold: T })
+  const keyless = decideGate({ deterministic: allPassing, jev: null, threshold: T })
+  const errored = decideGate({ deterministic: allPassing, jev: { error: 'boom' }, threshold: T })
+  const unscored = decideGate({ deterministic: allPassing, jev: {}, threshold: T })
+  const empty = decideGate({ deterministic: [], jev: { score: 100 }, threshold: T })
+  const below = decideGate({ deterministic: allPassing, jev: { score: 98.9 }, threshold: T })
+  const exactly = decideGate({ deterministic: allPassing, jev: { score: 99 }, threshold: T })
+
+  add(
+    failing.passed === false &&
+      failing.overall === 99.6 &&
+      healthy.passed === true &&
+      keyless.passed === true &&
+      keyless.overall === null &&
+      keyless.semantic === 'skipped' &&
+      errored.passed === false &&
+      errored.overall === null &&
+      unscored.passed === false &&
+      unscored.overall === null &&
+      empty.passed === false &&
+      below.passed === false &&
+      exactly.passed === true,
+    "the gate's own decision reads a failing result set as failing, an unmeasured criterion as unmeasured, and the " +
+      `${T} boundary exactly`,
+    JSON.stringify({ failing, keyless, errored, unscored, empty, below, exactly }),
+  )
+}
+
+/*
+ * The per-clause resolution is emitted into the report, not only aggregated.
+ *
+ * This block used to collapse all 14 clauses into one check row, so a clause
+ * credited to a proof that does not measure it was invisible: the row read
+ * "every stated requirement is backed by exactly one check that passed", which
+ * was true, while clause 14 was credited to `unit + security tests` (P4 in
+ * docs/gate-tree-completeness-2026-11-08.md). The resolution already computed
+ * here is now written out per clause, so tools/clause-proof-audit.mjs can measure
+ * each one instead of trusting a single summary line. Scoring-neutral: no check,
+ * label, threshold or weight is added, removed or altered, and the deterministic
+ * count is unchanged.
+ */
+const CLAUSE_RECORDS = (() => {
+  const cited = REQUIREMENTS.flatMap((r) => r.proofs.map((p) => ({ req: r.req, proof: p })))
+  const resolved = cited.map((c) => ({ ...c, hits: resolveCitation(c.proof, results) }))
+  const unproven = resolved.filter((c) => c.hits.length === 0 || !c.hits.every((x) => x.ok))
+  const ambiguous = resolved.filter((c) => c.hits.length > 1)
+  const distinct = new Set(cited.map((c) => c.proof)).size
+  add(
+    unproven.length === 0 && ambiguous.length === 0,
+    'every stated requirement is backed by exactly one check that passed in this run (' +
+      REQUIREMENTS.length +
+      ' requirements, ' +
+      distinct +
+      ' distinct checks cited)',
+    [
+      ...unproven.map((c) => c.req + ' -> ' + c.proof),
+      ...ambiguous.map((c) => 'ambiguous (' + c.hits.length + ' labels): ' + c.proof),
+    ].join('; '),
+  )
+
+  // The resolver's own teeth, planted rather than asserted in prose. Each
+  // specimen is a citation the old matcher would have credited:
+  //   - "mounted on the map surface" appears mid-label in a passing check, and
+  //     describes where it is mounted rather than what it proves;
+  //   - "Fair Housing notice" starts four labels, so it names no single check.
+  // The shipped citation must still resolve, and to exactly one check. If a
+  // future edit widens the matcher back to containment, or to first-match, this
+  // check fails on the next run instead of quietly restoring the old credit.
+  const midLabelSpecimen = 'mounted on the map surface'
+  const ambiguousSpecimen = 'Fair Housing notice'
+  const shippedSpecimen = 'production serves a build'
+  add(
+    resolveCitation(midLabelSpecimen, results).length === 0 &&
+      resolveCitation(ambiguousSpecimen, results).length > 1 &&
+      resolveCitation(shippedSpecimen, results).length === 1 &&
+      resolveCitation(shippedSpecimen, results)[0].ok,
+    'the citation matcher rejects a phrase that appears only mid-label and one that names several checks',
+  )
+
+  return {
+    // The pipeline steps, in run order. A clause credited only to one of these is
+    // credited to "the suite ran", which is a different claim from "this clause
+    // was measured" - the distinction tools/clause-proof-audit.mjs grades.
+    steps: [
+      ...gates.map((g) => g[0]),
+      'WCAG 2.2 AA audit (axe-core, real browser)',
+    ],
+    clauses: REQUIREMENTS.map((r) => ({
+      req: r.req,
+      proofs: cited
+        .filter((c) => c.req === r.req)
+        .map((c) => {
+          const hits = resolveCitation(c.proof, results)
+          return {
+            proof: c.proof,
+            labels: hits.map((x) => x.label),
+            passed: hits.length > 0 && hits.every((x) => x.ok),
+          }
+        }),
+    })),
+  }
+})()
+
+{
+  const marginsProven = results.some(
+    (x) => x.ok && /every figure on the country-wide screen carries its margin of error/.test(x.label),
+  )
+  add(
+    marginsClaimAgrees(MARGINS_CLAIM, marginsProven),
+    'the margins statement agrees with the check that grades it, rather than contradicting it',
+  )
+  add(
+    schoolClaimAgrees(SCHOOL_COVERAGE_CLAIM, pluginCatalog),
+    'the school-coverage statement matches the plugins the catalog actually registers',
+  )
+  add(
+    sweepClaimAgrees(SWEEP_CLAIM) && !sweepClaimAgrees(OLD_SWEEP_CLAIM),
+    'the country-wide request claim agrees with the measured chunk plan and rejects the old wording',
+  )
+  // The proof that the two predicates above are load-bearing: fed the wording
+  // they replaced, they must fail, and fed the wording that ships, they must
+  // pass. A predicate weakened into always-true fails here on the next run
+  // instead of quietly passing a stale claim through.
+  add(
+    !marginsClaimAgrees(OLD_MARGINS_CLAIM, true) &&
+      marginsClaimAgrees(MARGINS_CLAIM, true) &&
+      !schoolClaimAgrees(OLD_SCHOOL_CLAIM, pluginCatalog) &&
+      schoolClaimAgrees(SCHOOL_COVERAGE_CLAIM, pluginCatalog),
+    'both claim checks reject the wording they replaced and accept the wording that ships',
+  )
+}
+
 let jev = null
 if (TYPESAFE_KEY) {
   const state = {
@@ -1042,8 +1515,14 @@ if (TYPESAFE_KEY) {
       process.env.GATE_SUMMARY ??
       [
         'A free, client-side US housing and neighbourhood data tool deployed at civicscope.pages.dev.',
-        'Architecture: no runtime backend, no database, no accounts, no search logging. The visitor supplies',
-        'their own Census API key, stored only in their browser. Requests originate from the visitor, not us.',
+        'Architecture: the housing data path has no runtime backend, no database, no accounts and no search',
+        'logging. The visitor supplies their own Census API key, stored only in their browser, and the Census',
+        'requests originate from the visitor rather than from us. The one server-side surface is a set of',
+        'same-origin proxy routes under /api/muse (Pages Functions in functions/api/muse/): they exist so a',
+        'provider key never reaches the browser, they accept only an allowlisted request shape, they gate on a',
+        'budget and a breaker, they store no request or response bodies (counts only), and their meter lives in',
+        'one isolate rather than durably. They are not on the data path: every figure on the page comes from',
+        "the visitor's own Census requests.",
         'Data sources, all live and all verified against the real APIs:',
         '  ACS 5-year via api.census.gov — median gross rent, median home value, median household income,',
         '    median rent as a share of income, occupied households, population, renter-occupied units.',
@@ -1054,15 +1533,18 @@ if (TYPESAFE_KEY) {
         '    district teacher count under a dollars label, and that metric no longer exists.',
         '  CDC PLACES — tract-level health and access measures with 95% confidence intervals.',
         '  NYC Open Data (NYSED school-level) — named individual schools near a ZIP with enrolment,',
-        '    graduation rate and attendance rate. Currently New York only.',
-        'Screen then drill down: one request fetches all 33,772 ZCTAs in the country; the table is',
+        '    graduation rate and attendance rate. New York City only, and disclosed as such.',
+        '  EDFacts 2019 adjusted cohort graduation rates joined by school ID to NCES EDGE locations: up to',
+        '    eight nearest public schools within 3 km with a reportable four-year outcome, nationwide, with',
+        '    the published low/high band shown where the Portal supplies one.',
+        'Screen then drill down: ' + SWEEP_CLAIM + ' The table is',
         'sortable and filterable locally with no further requests; the user selects any number of areas to',
         'compare side by side and drill into, including school detail for the selected area.',
         'Fair housing: no published ranking of neighbourhoods, demographics are never a sort or filter',
         'control and are excluded from both composite indices, minimum-n suppression is enforced centrally in',
         'the engine rather than per plugin, and a Fair Housing notice with HUD and DOJ complaint links appears',
-        'on every screen showing data. Margins of error are rendered beside every figure on the single-area',
-        'drilldown, and are deliberately ABSENT from the country-wide screen, which fetches no _M variables:',
+        'on every screen showing data.',
+        MARGINS_CLAIM,
         'Accessibility: WCAG 2.2 AA audited with axe-core in a real browser against the production build',
         'with the Content-Security-Policy enforced, plus manual checks axe cannot make.',
         'Free and unmonetised: no advertising, no referral fees, no paid placement, no affiliate links, and no',
@@ -1072,6 +1554,12 @@ if (TYPESAFE_KEY) {
         'published and the funds are the maintainer\'s — a weaker guarantee than a collective, and disclosed on',
         'the page rather than implied away. No contribution can change any figure, ranking or result, which is',
         'asserted by the checks above rather than promised in prose.',
+        'A county layer sits behind the data path without a screen: a ZIP-to-county index regenerated here from',
+        'the Census 2020 ZCTA-to-County relationship file (33,791 ZIP codes, 3,211 counties, each with the share',
+        'of the ZCTA land inside its county), and a county aggregate that sums counts only, reports an unknown',
+        'count as unknown rather than as a partial total, and refuses to build a county median out of ZIP',
+        'medians because the publisher publishes those directly. No screen renders a county row yet, so this',
+        'backs nothing the visitor sees today.',
         'Map: every ZIP code in the country is drawn on a hexbin map from the same cached figures, coloured',
         'by a quantile scale and showing the MEDIAN of the ZIP codes in each hexagon rather than a mean, so',
         'one extreme value cannot dominate its neighbours. A filled-polygon choropleth was measured and',
@@ -1085,13 +1573,14 @@ if (TYPESAFE_KEY) {
         'height scroll container, aria-rowcount reports the true total, and a ZIP with no estimate for the',
         'chosen column reads "not yet imported" rather than being hidden.',
         'Nothing is stubbed and no mock data is used. There are no placeholder or fake values in src.',
+        REQUIREMENT_LINE,
       ].join(' '),
     verification_evidence: {
       test_suites: [
         'Unit and security tests: 185 passing, hermetic, no network.',
         'Live API contract tests: 32 passing against the real Census, TIGERweb, NCES, CDC and NYC Open Data endpoints. These assert response shape, so upstream drift is caught rather than silently reducing what the site shows.',
         'Browser end-to-end tests: 41 passing in Chromium against the production build, including the WCAG 2.2 AA axe-core audit with zero violations and six that assert the map draws, publishes a text equivalent, states real legend values, carries the Fair Housing notice, responds to the keyboard, and shows no sentinel.',
-        'Completion gate itself: 51 deterministic checks, all passing.',
+        'Completion gate itself: ' + results.length + ' deterministic checks, all passing.',
       ],
       measured_results: [
         'National ACS sweep returns all 33,791 ZCTAs Census publishes, fetched as 43 explicit chunked requests rather than one wildcard query. The nineteen ZCTAs with no ACS coverage are returned as absent rows reading not yet imported rather than being omitted, because an absent estimate is not a missing place.',
@@ -1114,7 +1603,7 @@ if (TYPESAFE_KEY) {
       ],
     },
     known_limitations: [
-      'Per-school detail is covered for NEW YORK ONLY. This is a structural limit, re-searched rather than assumed: tools/probe-school-sources.mjs queries the Socrata catalog API for school performance, achievement and graduation datasets across US open-data portals, fetches each candidate dataset metadata, and requires a school name column, a latitude column and an achievement measure. Of 55 candidate datasets examined, 0 were usable. The rejections are specific and consistent: state portals publish DISTRICT accountability rows with no per-school name and no coordinates (Connecticut CMT/CAPT, Texas ratings, Pennsylvania, Delaware, Maryland), and the per-school datasets that do exist either lack coordinates or are lead-testing records rather than achievement. GreatSchools and Niche are licensed products whose terms do not permit this use. The other 49 states have district-level data, which is real and citable, and the interface says so. StateSchoolPlugin plus the STATE_SCHOOL_PLUGINS list is the extension point, and a new state joins the drilldown automatically.',
+      SCHOOL_COVERAGE_CLAIM,
       'Stewardship: the code is nobody-owned in the sense that no entity controls it and no company can buy a better result. The donation route IS wired: three live links (PayPal, Venmo, Cash App) in a section reachable without a Census key, matching the author\'s other free tools. They resolve to personal accounts rather than to a public collective, which was deliberately traded away because the direct routes need no account setup or incorporation to work; the consequence — the balance is not published and the funds are the maintainer\'s — is disclosed on the page itself rather than glossed. The maintainer reviewed and accepted this design on 2026-10-06, noting the project has received no funds, so a collective would be a continuity mechanism for a balance of zero. Hosting was reviewed the same day: GitHub is where the project lives — the licence is MIT, every figure is reproducible from public endpoints, and every fork survives a repository deletion, so an organisation being able to delete the canonical copy is a trade the maintainer accepts and states. These are decisions, not pending work; docs/governance.md records both with their dates.',
       'The domain requirement is met. The original request asks for "a selected domain", and the selected domain is the deployment address: https://civicscope.pages.dev. It is HTTPS, it resolves, and it is the address this gate itself audits, so the product and its verification already live on it. A custom name (civicscope.fyi) was priced and deliberately dropped on 2026-10-06: a URL adds no functionality to a client-side tool with no server, and the request asks for selection rather than purchase. Nothing is pending. This row previously described pages.dev as "not a registered name" and named an unpurchased alternative, which presented a met requirement as unmet; the wording was the defect, not the deployment.',
       'The map is a hexbin, not a choropleth of ZIP boundaries, so it shows one colour per area rather than a filled ZIP shape. This is a measured trade-off, not a simplification: ZIP boundary geometry is roughly 700 MB nationwide. Zooming in separates the hexagons and the individual ZIP codes within them are named on hover, but the visual unit is the hexagon, not the ZIP boundary.',
@@ -1139,6 +1628,9 @@ if (TYPESAFE_KEY) {
   }
 
   const questions = {
+    // Diagnostic since the instrument repair: the scored `requirements_met` is
+    // the clause aggregate (see the file header). The question is kept asked
+    // and recorded so its own series stays comparable across the repair.
     requirements_met: {
       type: 'noul',
       instructions:
@@ -1181,6 +1673,7 @@ if (TYPESAFE_KEY) {
     },
   }
 
+  let decisive = null
   try {
     const res = await fetch('https://api.typesafe.ai/v1/systemone', {
       method: 'POST',
@@ -1189,21 +1682,101 @@ if (TYPESAFE_KEY) {
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text().catch(() => '')}`.slice(0, 200))
     const body = await res.json()
-    const a = body.answers ?? {}
-
-    // 0-3 rubric, weighted with the two hard gates dominant so a confident
-    // "yes" on an unaddressed requirement cannot be averaged away.
-    const rubric = (a.is_a_99?.score ?? 0) / 3
-    const score = (0.4 * rubric + 0.3 * (a.requirements_met?.noul ?? 0) + 0.3 * (a.overclaiming?.noul ?? 0)) * 100
-    jev = {
-      score: Math.round(score * 10) / 10,
-      model: body.model,
-      answers: a,
-      usage: body.usage,
-    }
+    decisive = body
     console.log(`${c.d}Jev: ${body.model} · ${body.usage?.input_tokens ?? '?'} in / ${body.usage?.output_tokens ?? '?'} out${c.x}\n`)
   } catch (err) {
     jev = { error: String(err.message) }
+  }
+
+  // The per-requirement verdicts are asked BEFORE the score is computed,
+  // because their aggregate is the scored `requirements_met` component. A
+  // failure here is no longer diagnostic: without a measured aggregate there is
+  // no requirements_met to score, and the layer fails rather than substituting
+  // the holistic answer the aggregate replaced.
+  if (decisive) {
+    const a = decisive.answers ?? {}
+    const profileQuestions = {}
+    REQUIREMENTS.forEach((r, i) => {
+      profileQuestions[`clause_${i + 1}`] = {
+        type: 'noul',
+        instructions:
+          'Judging only the evidence in `deliverable_summary` and `deterministic_results`, is this specific part of `original_request` addressed with passing evidence? The part: ' +
+          r.req,
+        criteria: { true: 'Addressed with passing evidence.', false: 'Missing, partial, or unevidenced.' },
+      }
+    })
+    for (const aspect of JUDGE_ASPECTS) {
+      profileQuestions[`aspect_${aspect.key}`] = {
+        type: 'noul',
+        instructions:
+          'Judging only `deliverable_summary`, `known_limitations` and `deterministic_results`, is this aspect of `original_request` fully delivered? The aspect: ' +
+          aspect.ask,
+        criteria: { true: 'Fully delivered.', false: 'Not fully delivered.' },
+      }
+    }
+    let profile = null
+    let profileUsage = null
+    try {
+      const profileRes = await fetch('https://api.typesafe.ai/v1/systemone', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${TYPESAFE_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state, model: 'jev-latest', questions: profileQuestions }),
+      })
+      if (profileRes.ok) {
+        const profileBody = await profileRes.json()
+        profile = profileBody.answers ?? null
+        profileUsage = profileBody.usage ?? null
+      }
+    } catch {
+      /* Reported below as a failed semantic verdict, not as a low score. */
+    }
+
+    const clauseValues = []
+    for (let i = 1; i <= REQUIREMENTS.length; i += 1) {
+      const answer = profile?.[`clause_${i}`]
+      // A clause that is missing, of the wrong type, or outside [0, 1] is not a
+      // zero: it is an unmeasured clause. Averaging over whichever clauses did
+      // answer would report a number the record cannot support.
+      const value =
+        answer?.type === 'noul' && typeof answer.noul === 'number' && answer.noul >= 0 && answer.noul <= 1
+          ? answer.noul
+          : null
+      if (value === null) {
+        jev = {
+          error:
+            `per-requirement clause_${i} has no numeric verdict, so the scored requirements_met aggregate ` +
+            `is unavailable (${clauseValues.length}/${REQUIREMENTS.length} clauses measured); fail-closed`,
+          profile,
+        }
+        break
+      }
+      clauseValues.push(value)
+    }
+
+    if (jev === null) {
+      const requirementsMet = clauseValues.reduce((sum, v) => sum + v, 0) / clauseValues.length
+      // 0-3 rubric, weighted with the two hard gates dominant so a confident
+      // "yes" on an unaddressed requirement cannot be averaged away. The
+      // weights and the rubric are unchanged by the repair; what changed is only
+      // what fills `requirements_met` - the mean of the clause verdicts rather
+      // than one holistic answer.
+      const rubric = (a.is_a_99?.score ?? 0) / 3
+      const score = (0.4 * rubric + 0.3 * requirementsMet + 0.3 * (a.overclaiming?.noul ?? 0)) * 100
+      jev = {
+        score: Math.round(score * 10) / 10,
+        model: decisive.model,
+        answers: a,
+        usage: decisive.usage,
+        profile,
+        profileUsage,
+        requirementsMet: {
+          value: Math.round(requirementsMet * 1000) / 1000,
+          aggregation: 'arithmetic mean of clause_1..clause_14 nouls',
+          clauses: REQUIREMENTS.length,
+          answered: clauseValues.length,
+        },
+      }
+    }
   }
 } else {
   console.log(`${c.d}Jev review skipped: TYPESAFE_API_KEY not set. Deterministic layer ran alone.${c.x}\n`)
@@ -1232,18 +1805,136 @@ if (jev?.error) {
           : `choice=${v.choice} conf=${v.confidence}`
     console.log(`  ${c.d}${k}: ${line}${c.x}`)
   }
+  if (jev.requirementsMet) {
+    console.log(
+      `  ${c.d}requirements_met (scored) = ${jev.requirementsMet.value}` +
+        ` (${jev.requirementsMet.answered}/${jev.requirementsMet.clauses} clauses, ` +
+        `${jev.requirementsMet.aggregation})${c.x}`,
+    )
+  }
+  if (jev.profile) {
+    console.log(
+      `\n${c.b}Per-requirement profile${c.x} ${c.d}(clause_* are the scored aggregate; aspect_* are diagnostic)${c.x}`,
+    )
+    for (const [name, answer] of Object.entries(jev.profile)) {
+      const conf = answer?.confidence !== undefined ? ` conf=${answer.confidence}` : ""
+      const value =
+        answer?.type === 'noul' ? `noul=${answer.noul}` : answer?.type === 'score' ? `score=${answer.score}/3` : `choice=${answer?.choice}`
+      console.log(`  ${c.d}${name}: ${value}${conf}${c.x}`)
+    }
+  }
   console.log(
     `  ${c.d}note: this scores the supplied evidence, not reality. A high number means the` +
       `\n        record is coherent, not that the code is correct — that is the deterministic layer's job.${c.x}`,
   )
 }
 
-const overall =
-  jev === null ? (detOk ? 100 : 0) : detOk && jev.score >= THRESHOLD ? jev.score : Math.min(jev.score ?? 0, 98.9)
+/*
+ * Rule 6 of the owner-ordered flush-tree discipline (2026-11-07): every verdict
+ * states whether its register was authored by the operator and whether a
+ * register-independent channel ran. This instrument's register is the
+ * REQUIREMENTS and JUDGE_ASPECTS lists above, both written by the operator, and
+ * every question it asks is `noul`, `score` or `choice` - all menu-bound. No
+ * open-ended question is asked, so the judge cannot name an aspect this list
+ * omits, with a key or without one. A run therefore cannot report completeness
+ * of its own tree, and `requirements_met` is a read of how well the evidence
+ * satisfies the operator's list, not of how complete the list is.
+ *
+ * Carried in the report rather than only in prose so the limitation travels with
+ * the number: an unrun completeness channel is a stated limitation, never a
+ * silent completeness claim. See docs/gate-tree-completeness-2026-11-08.md for
+ * the hunt, the purpose map, the premises and the planted-probe catch rates.
+ */
+const REGISTER = {
+  operator_authored: true,
+  authored_in: 'tools/completion-gate.mjs: REQUIREMENTS, JUDGE_ASPECTS, unmet_requirement criteria',
+  independent_channel: 'none: only noul, score and choice questions are asked, so every answer is drawn from the operator menu',
+  independent_channel_ran: false,
+  tree_complete: 'unrun',
+  limitation:
+    'This gate cannot report that its aspect tree is complete. An aspect the register omits is invisible to every verdict here, including requirements_met.',
+}
+console.log(
+  `  ${c.d}register: operator-authored; no register-independent channel ran (menu-bound questions only);` +
+    `\n            tree completeness is not measured by this gate.${c.x}`,
+)
 
-writeFileSync(OUT, JSON.stringify({ threshold: THRESHOLD, deterministic: results, jev, overall }, null, 2))
-console.log(`\n${c.b}Overall: ${overall}/100${c.x}  ${c.d}(report: ${OUT})${c.x}`)
+/*
+ * The final decision is made by tools/gate-score.mjs, not by an expression here.
+ *
+ * Written inline, the decision reported two numbers nobody measured: a keyless
+ * run printed `Overall: 100/100` and "GATE PASSED" for a run in which the
+ * 99-threshold criterion never ran (every CI run is keyless), and a failing
+ * deterministic layer printed 98.9 instead of the score it had measured. Both
+ * were found by calling that expression with synthetic inputs, which is now a
+ * unit test and a self-check below rather than a reading.
+ */
+const decision = decideGate({ deterministic: results, jev, threshold: THRESHOLD })
+const overall = decision.overall
 
-const passed = detOk && (jev === null || jev.score >= THRESHOLD)
-console.log(passed ? `${c.g}GATE PASSED${c.x}` : `${c.r}GATE FAILED${c.x}`)
+writeFileSync(
+  OUT,
+  JSON.stringify(
+    {
+      threshold: THRESHOLD,
+      register: REGISTER,
+      clauses: CLAUSE_RECORDS,
+      deterministic: results,
+      jev,
+      overall,
+      decision,
+    },
+    null,
+    2,
+  ),
+)
+
+const criteriaLine = {
+  measured: `semantic criterion (${THRESHOLD}): ${decision.thresholdMet ? 'MET' : 'NOT MET'}`,
+  skipped: `semantic criterion (${THRESHOLD}): NOT MEASURED`,
+  error: `semantic criterion (${THRESHOLD}): NOT MEASURED (the layer failed)`,
+}[decision.semantic]
+console.log(
+  overall === null
+    ? `\n${c.b}Overall: not measured${c.x}  ${c.d}(${criteriaLine}; report: ${OUT})${c.x}`
+    : `\n${c.b}Overall: ${overall}/100${c.x}  ${c.d}(${criteriaLine}; report: ${OUT})${c.x}`,
+)
+
+const passed = decision.passed
+if (passed && decision.semantic === 'skipped') {
+  // A pass on the deterministic layer alone is a real result and a limited one.
+  // Saying so is the difference between "the checks that ran, passed" and a
+  // perfect score nobody measured.
+  console.log(
+    `${c.g}GATE PASSED${c.x} ${c.y}(deterministic layer only: the ${THRESHOLD}-threshold semantic criterion was not measured)${c.x}`,
+  )
+} else {
+  console.log(passed ? `${c.g}GATE PASSED${c.x}` : `${c.r}GATE FAILED${c.x}`)
+  if (!passed) console.log(`  ${c.d}${decision.reason}${c.x}`)
+}
+
+/*
+ * Exit only once the report has actually left this process.
+ *
+ * Measured on CircleCI pipeline #11, completion-gate job #33: the step ran 8m04s,
+ * exited 1, and its log held only the banner printed eight minutes earlier — no
+ * score, no failing requirement, no reason. The exit code was earned: the only
+ * exit in this file is the line below, and it is reached only after the report
+ * prints. What was lost is the report. Node writes to a pipe asynchronously on
+ * POSIX (synchronous on Windows, which is why the same run on the maintenance
+ * laptop never lost a line), so `process.exit()` discards whatever is still
+ * queued in the pipe. A gate that fails without saying why is precisely the
+ * failure mode this file exists to remove, so the streams are drained first,
+ * with a bound so a closed pipe cannot hang the step.
+ */
+const drained = (stream) =>
+  new Promise((resolve) => {
+    const timer = setTimeout(resolve, 2000)
+    stream.write('', () => {
+      clearTimeout(timer)
+      resolve()
+    })
+  })
+
+await Promise.all([drained(process.stdout), drained(process.stderr)])
 process.exit(passed ? 0 : 1)

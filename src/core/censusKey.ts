@@ -12,6 +12,17 @@
  * and the key is delivered by email with no programmatic read endpoint. The
  * flow is therefore designed to be as short as that constraint allows: one
  * click to open the form, one paste to finish.
+ *
+ * The personal key above is no longer the only key the app can run on. Since
+ * the federation decided by the owner on 2026-10-31, a deployment may supply
+ * the project's shared application Census key at build time (its canonical
+ * home is the Entire hackathon repo's configuration), and the app uses it as
+ * the default for visitors who have not added their own. That changes the
+ * default experience, not the personal-key properties: a visitor's own key
+ * still never leaves their browser, still wins over the shared default, and
+ * is still the only key whose lifecycle CENSUS_KEY_EVENT describes. The
+ * resolution below carries the source alongside the value so no surface can
+ * mistake the shared default for a key the visitor added.
  */
 
 const STORAGE_KEY = 'civicscope.censusKey.v1'
@@ -62,6 +73,71 @@ function notifyKeyChanged(): void {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event(CENSUS_KEY_EVENT))
   }
+}
+
+/**
+ * Where the effective Census key came from.
+ *
+ * - 'personal': the visitor added their own key. It is stored in this
+ *   browser, its lifecycle is theirs (setCensusKey / clearCensusKey), and
+ *   CENSUS_KEY_EVENT tracks it.
+ * - 'shared': the deployment supplied the project's shared application key
+ *   at build time. It identifies the application to the Census Bureau, not
+ *   the visitor; nothing about it is stored in the browser, and it never
+ *   fires CENSUS_KEY_EVENT — its presence is a build-time constant.
+ */
+export type CensusKeySource = 'personal' | 'shared'
+
+export interface CensusKeyResolution {
+  key: string
+  source: CensusKeySource
+}
+
+/**
+ * The deployment-supplied shared application key, or undefined when the
+ * deployment did not provide one.
+ *
+ * Surfaced through the app's build mechanism: vite.config.ts adds
+ * CENSUS_APP_KEY to Vite's envPrefix, so a value set on the deployment at
+ * build time reaches the client as import.meta.env.CENSUS_APP_KEY. The code
+ * ships with no value; an unset variable is simply absent, and every caller
+ * then behaves exactly as the app did before the shared key existed. The
+ * value is read at call time rather than captured at module load, so what
+ * the app acts on is always what the running build shipped.
+ */
+export function getSharedCensusKey(): string | undefined {
+  const v = import.meta.env.CENSUS_APP_KEY
+  if (typeof v !== 'string') return undefined
+  // A value pasted into a deployment dashboard routinely carries a trailing
+  // newline; the Census API would reject the key because of it.
+  const trimmed = v.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}
+
+/**
+ * The key the data path should use, with the source it came from.
+ *
+ * Precedence is personal over shared, deliberately: a visitor who adds
+ * their own key gets their own usage attribution and rate allowance, which
+ * is the property the personal-key design exists to provide. The shared key
+ * is a default for visitors who have not added one, never an override of a
+ * visitor's choice — and when the personal key is removed, resolution falls
+ * back to the shared default rather than to no key.
+ */
+export function resolveCensusKey(): CensusKeyResolution | undefined {
+  const personal = getCensusKey()
+  if (personal) return { key: personal, source: 'personal' }
+  const shared = getSharedCensusKey()
+  if (shared) return { key: shared, source: 'shared' }
+  return undefined
+}
+
+/**
+ * The source of the effective key, for copy and diagnostics that must not
+ * claim the visitor added a key when the shared default is what is running.
+ */
+export function getCensusKeySource(): CensusKeySource | undefined {
+  return resolveCensusKey()?.source
 }
 
 /**

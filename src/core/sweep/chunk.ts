@@ -79,8 +79,24 @@ const ZCTA_WINDOWS: [string, string][] = [
  * because the list only changes when Census publishes a new ZCTA layer, which
  * is at most annually.
  */
-export const ENUM_CACHE_KEY = 'civicscope://zcta-enumeration/v1'
-const ENUM_TTL_MS = 90 * 24 * 60 * 60 * 1000
+/**
+ * `tiger2020` is the layer the list was enumerated from. Champion Audit #77's F2
+ * found the key carried no data vintage, so a stored list survived a layer change
+ * for its whole ninety-day life while the sweep partitioned on codes that no
+ * longer matched. A new layer needs a new token here, and that deploy invalidates
+ * the stored copy.
+ */
+export const ENUM_CACHE_KEY = 'civicscope://zcta-enumeration/v2-tiger2020'
+
+/**
+ * Enumeration freshness: ninety days.
+ *
+ * Exported so the Champion Audit (#77) replays the shipped value rather than a
+ * copy of it. The key carries a version but no data vintage, which is why this
+ * lifetime is the one measured for a superseded list: see
+ * `docs/champion-audit-77-cache-freshness.md`.
+ */
+export const ENUM_TTL_MS = 90 * 24 * 60 * 60 * 1000
 
 /**
  * Enumerates every ZCTA in the country, keyless, in a handful of requests.
@@ -132,7 +148,13 @@ export interface ZctasByPrefix {
   zctas: string[]
 }
 
-const STATE_NAMES: Record<string, string> = {
+/*
+ * Exported for reverse lookup: the placeless screen has to recognise "Texas" in
+ * a question and this is the only state list in the tree. A copy there would let
+ * the two disagree about what a prefix means, which is how a ZIP gets labelled
+ * with the wrong state on one surface and the right one on another.
+ */
+export const STATE_NAMES: Record<string, string> = {
   '01': 'Alabama', '02': 'Alaska', '04': 'Arizona', '05': 'Arkansas', '06': 'California',
   '08': 'Colorado', '09': 'Connecticut', '10': 'Delaware', '11': 'District of Columbia',
   '12': 'Florida', '13': 'Georgia', '15': 'Hawaii', '16': 'Idaho', '17': 'Illinois',

@@ -243,7 +243,7 @@ describe('e2e: keyless ZIP guidance', () => {
 })
 
 describe('e2e: deterministic screening and explain surfaces', () => {
-  it('keeps ZIP order, renders Explain on the loaded views, and keeps the stub path offline', async () => {
+  it('keeps ZIP order, renders Explain on the loaded views, and sends AI requests only to the same-origin proxy', async () => {
     const context = await browser.newContext()
     const fixtureRows = [
       { zcta: '10003', rent: '2400' },
@@ -258,8 +258,31 @@ describe('e2e: deterministic screening and explain surfaces', () => {
       })
       const sortPage = await context.newPage()
       const appOrigin = new URL(BASE).origin
+      // The AI path is a fixture at the network boundary, same as every other
+      // source here. The prose carries no numerals so the validator's job is
+      // not what this test is measuring; meta-client.test.ts owns that.
+      const askIntent = {
+        mode: 'lookup',
+        geographies: ['10002'],
+        metricKeys: ['median_gross_rent'],
+        filters: [],
+        clarificationNeeded: false,
+      }
+      const askProse = 'The figures shown are estimates from the Census Bureau, and the margins of error are not reported for these areas.'
       await sortPage.route('**/*', async (route) => {
         const url = new URL(route.request().url())
+        if (url.origin === appOrigin && url.pathname.startsWith('/api/muse/')) {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify(
+              url.pathname.endsWith('/intent')
+                ? { intent: askIntent }
+                : { prose: askProse },
+            ),
+          })
+          return
+        }
         if (url.origin === appOrigin) {
           await route.continue()
           return
@@ -362,15 +385,19 @@ describe('e2e: deterministic screening and explain surfaces', () => {
 
       await sortPage.getByRole('button', { name: 'Explore', exact: true }).click()
       await sortPage.getByRole('textbox', { name: 'Ask in plain language' }).fill('rent in 10002')
-      await sortPage.getByRole('button', { name: 'Ask', exact: true }).click()
-      await sortPage.getByLabel('Add a place').fill('10002')
-      await sortPage.getByRole('button', { name: 'Add place' }).click()
-      await sortPage.getByLabel('Add a measure').selectOption('median_gross_rent')
-      await sortPage.getByRole('button', { name: 'Add measure' }).click()
+      // Scoped to the Ask panel for the same reason as ask-shell: the briefing
+      // surface's "Methodology questions" region also has an "Ask" submit.
+      await sortPage
+        .getByRole('region', { name: 'Ask CivicScope' })
+        .getByRole('button', { name: 'Ask', exact: true })
+        .click()
+      await sortPage.getByText('lookup', { exact: true }).waitFor()
+      expect(await sortPage.getByRole('button', { name: 'Remove place 10002' }).count()).toBe(1)
+      expect(await sortPage.getByRole('button', { name: 'Remove measure median_gross_rent' }).count()).toBe(1)
       const askExplain = sortPage.getByRole('button', { name: 'Explain these figures' })
       await askExplain.waitFor()
       await askExplain.click()
-      await sortPage.getByText('The wording helper returned no explanation.').waitFor()
+      await sortPage.getByText(askProse, { exact: true }).waitFor()
 
       await sortPage.getByLabel('Name for this comparison').fill('Fixture shortlist')
       await sortPage.getByRole('button', { name: 'Save', exact: true }).click()
@@ -379,10 +406,16 @@ describe('e2e: deterministic screening and explain surfaces', () => {
       await table.locator('tbody tr').filter({ hasText: '10001' }).getByRole('button', { name: 'Compare' }).click()
       await sortPage.getByRole('button', { name: 'Explain the shared figures' }).waitFor()
 
+      // The live client is proxy-first: every AI call is same-origin, and no
+      // visitor key (there is none stored here) could reach another origin.
       const providerRequests = await sortPage.evaluate(() => performance.getEntriesByType('resource')
         .map((entry) => entry.name)
         .filter((name) => name.includes('/api/muse/')))
-      expect(providerRequests).toEqual([])
+      expect(providerRequests.length).toBeGreaterThan(0)
+      for (const request of providerRequests) {
+        expect(new URL(request).origin, request).toBe(appOrigin)
+      }
+      expect(providerRequests.some((name) => name.includes('api.meta.ai'))).toBe(false)
     } finally {
       await context.close()
     }

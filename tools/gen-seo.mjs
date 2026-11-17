@@ -1,8 +1,10 @@
 /**
  * Static SEO generator.
  *
- * The app is a single-page application with no server, which is what keeps the
- * privacy and legal posture intact — but search engines cannot execute
+ * The data app is a single-page application that fetches from the publishers
+ * directly, which is what keeps the privacy and legal posture intact — the only
+ * server-side component is the optional Muse AI proxy under `functions/api/muse/`,
+ * and housing data never passes through it. But search engines cannot execute
  * JavaScript reliably, and a user with JavaScript disabled gets nothing. So the
  * discoverable surface is generated ahead of time from public data, at build
  * time, and served as static files.

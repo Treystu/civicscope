@@ -62,6 +62,7 @@ describe('Explain action input and validator gate', () => {
 
     await expect(requestValidatedExplanation(invented, 'comparison', figures)).resolves.toEqual({
       explanation: { withheld: true },
+      withholdClass: 'invented_numeral',
     })
     await expect(requestValidatedExplanation(empty, 'comparison', figures)).resolves.toEqual({
       message: 'The wording helper returned no explanation.',

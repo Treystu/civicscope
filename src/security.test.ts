@@ -1,6 +1,6 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { dirname, join } from 'node:path'
+import { dirname, join, sep } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { registry } from './core/plugin-catalog'
 
@@ -54,44 +54,95 @@ describe('deployment security headers', () => {
 
 /**
  * The connect-src allowlist is a public claim about who this app talks to. If a
- * plugin starts calling a new origin and the allowlist is not updated, the
- * request is blocked in production and nobody notices in development. This test
- * makes the coupling explicit.
+ * module starts calling a new origin and the allowlist is not updated, the
+ * request is blocked in production and nobody notices in development.
+ *
+ * The previous version of this test named ten files by hand. That list was the
+ * defect: `src/core/ai/meta-client.ts` was added later, was not on it, and the
+ * deployed policy blocked `https://api.meta.ai` for every visitor using their
+ * own Meta key. An enumerated list silently missing a file cannot be fixed by
+ * adding a line, because the next file is missed the same way.
+ *
+ * So the scan is by capability, not by name. Every non-test module under src/
+ * that contains a network-call token is read; every quoted absolute URL in it
+ * is an origin this app can call. Test tiers (src/e2e, src/live, *.test.*) are
+ * excluded because they are not shipped and legitimately name fake origins.
  */
-describe('CSP allowlist matches the code', () => {
-  const originsInCode = new Set<string>()
+const NETWORK_CALL = /\b(fetch|WebSocket|EventSource|sendBeacon)\s*\(/
+const QUOTED_ABSOLUTE_URL = /['"`](https:\/\/[^'"`\s]+)['"`]/g
 
-  // Plugin sources live in core/plugins; the geocoder and the map live directly
-  // in core. The map is included so that if it ever starts talking to a tile
-  // server or a geocoding API, this test forces the allowlist to say so rather
-  // than letting the request fail silently in production.
-  const sources = [
-    join(root, 'core', 'plugins', 'acs.ts'),
-    join(root, 'core', 'plugins', 'keyless.ts'),
-    join(root, 'core', 'plugins', 'geography.ts'),
-    join(root, 'core', 'plugins', 'schools.ts'),
-    join(root, 'core', 'plugins', 'school-outcomes.ts'),
-    join(root, 'core', 'geocode.ts'),
-    join(root, 'core', 'map', 'centroids.ts'),
-    join(root, 'core', 'map', 'projection.ts'),
-    join(root, 'core', 'map', 'binning.ts'),
-    join(root, 'core', 'map', 'scale.ts'),
-  ]
-  for (const path of sources) {
-    const src = readFileSync(path, 'utf8')
-    for (const m of src.matchAll(/https:\/\/([a-z0-9.\-]+)/gi)) originsInCode.add(m[1]!.toLowerCase())
+function networkSourceFiles(dir: string, out: string[] = []): string[] {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name)
+    if (entry.isDirectory()) {
+      if (entry.name === 'node_modules') continue
+      networkSourceFiles(path, out)
+    } else if (/\.(ts|tsx)$/.test(entry.name) && !/\.test\.(ts|tsx)$/.test(entry.name)) {
+      out.push(path)
+    }
+  }
+  return out
+}
+
+/** Hosts named by quoted absolute URLs in one source text. */
+function hostsIn(source: string): string[] {
+  const hosts = new Set<string>()
+  for (const match of source.matchAll(QUOTED_ABSOLUTE_URL)) {
+    try {
+      hosts.add(new URL(match[1]!).host.toLowerCase())
+    } catch {
+      // A malformed literal is not an origin; the compiler owns that mistake.
+    }
+  }
+  return [...hosts]
+}
+
+describe('CSP allowlist matches the code', () => {
+  const files = networkSourceFiles(root).filter(
+    (path) => !path.includes(`${sep}e2e${sep}`) && !path.includes(`${sep}live${sep}`),
+  )
+  const byOrigin = new Map<string, string[]>()
+  for (const path of files) {
+    const source = readFileSync(path, 'utf8')
+    if (!NETWORK_CALL.test(source)) continue
+    for (const host of hostsIn(source)) {
+      byOrigin.set(host, [...(byOrigin.get(host) ?? []), path.slice(root.length + 1)])
+    }
   }
 
   it('finds the data origins in the source', () => {
-    expect(originsInCode.size).toBeGreaterThan(0)
-    expect([...originsInCode]).toContain('api.census.gov')
+    expect(byOrigin.size).toBeGreaterThan(0)
+    expect([...byOrigin.keys()]).toContain('api.census.gov')
   })
 
-  it('allows every origin the source code actually calls', () => {
+  it('scans the AI client, which the enumerated list missed', () => {
+    // The specific miss this rewrite exists to prevent. A named-file list can
+    // silently exclude a directory; a capability scan cannot, and this fails
+    // loudly if a future refactor makes the AI client stop looking like a
+    // network module (for example by moving transport behind another name).
+    expect([...byOrigin.keys()]).toContain('api.meta.ai')
+    expect(byOrigin.get('api.meta.ai')).toContain(join('core', 'ai', 'meta-client.ts'))
+  })
+
+  it('allows every origin any shipped module actually calls', () => {
     const policy = csp()
     const connectSrc = policy.split(';').find((d) => d.trim().startsWith('connect-src'))!
-    const missing = [...originsInCode].filter((o) => !connectSrc.includes(o))
-    expect(missing, `Add these to connect-src in public/_headers: ${missing.join(', ')}`).toEqual([])
+    const missing = [...byOrigin.entries()].filter(([host]) => !connectSrc.includes(host))
+    expect(
+      missing.map(([host, paths]) => `${host} (${[...new Set(paths)].join(', ')})`),
+      'Add these to connect-src in public/_headers',
+    ).toEqual([])
+  })
+
+  it('would catch an origin added to a network module without a policy entry', () => {
+    // Proves the check has teeth independently of today's origins: a new
+    // fetch-bearing source contributes its host, and a host that is absent
+    // from the policy is reported rather than ignored.
+    const added = "const res = await fetch('https://new-origin.example/api')"
+    const hosts = hostsIn(added)
+    expect(hosts).toEqual(['new-origin.example'])
+    const connectSrc = csp().split(';').find((d) => d.trim().startsWith('connect-src'))!
+    expect(connectSrc.includes(hosts[0]!)).toBe(false)
   })
 
   it('every registered plugin is reachable under the policy', () => {

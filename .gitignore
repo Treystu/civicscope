@@ -25,3 +25,9 @@ g3.txt
 # The exhaustive data audit writes its report here. The report is evidence about a
 # run rather than source, and it is large enough to be noise in a diff.
 audit/
+
+# Wrangler writes local dev state here (sessions, caches, dev-server pid files).
+# Regenerable by running the dev server again, so it is ignored rather than
+# committed and rather than left as an untracked item that every audit of this
+# checkout has to re-classify. It held no source.
+.wrangler/

@@ -54,6 +54,21 @@ describe('e2e: URL-carried comparison', () => {
     await waitForCard(page, '78701')
     await waitForCard(page, '10001')
     // And the reader sees where each area is, not just a number.
+    //
+    // The city label is awaited rather than read straight after the ZIP appears: the
+    // ZIP comes from the place index and the city name is part of the same card but
+    // not necessarily painted in the same frame, and reading at that moment made this
+    // check fail once in job 272 and pass in job 275 on a byte-identical tree. The
+    // assertion is unchanged - a card that never names its city still fails - it is
+    // now given the wait the fixture's own `waitForCard` already relies on.
+    await page.waitForFunction(
+      () =>
+        [...document.querySelectorAll('main article')].some(
+          (a) => a.textContent?.includes('78701') && /Austin/.test(a.textContent ?? ''),
+        ),
+      undefined,
+      { timeout: 30000 },
+    )
     const card = page.locator('main article').filter({ hasText: '78701' }).first()
     expect(await card.innerText()).toMatch(/Austin/)
     await page.context().close()

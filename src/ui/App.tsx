@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useHousingQuery } from '../core/useHousingQuery'
-import { createStubProvider } from '../core/ai/provider'
+import {
+  createLiveProvider,
+  createMetaDirectProvider,
+  META_API_BASE,
+  MUSE_SPARK_MODEL,
+  ProviderCallError,
+} from '../core/ai/meta-client'
+import { getMetaKey, type MetaKeyFetcher } from '../core/ai/meta-key'
+import { DISPLAYABLE_KEYS } from '../core/ai/intent-schema'
+import type { ValidatedIntent } from '../core/ai/provider'
 import { loadPlaceIndex, type PlaceIndex, type PlaceSuggestion } from '../core/zcta-place-index'
 import { FairHousingNotice } from './FairHousingNotice'
 import { GuidedTour, TourNotice, shouldShowTour } from './GuidedTour'
@@ -18,9 +27,18 @@ import { Comparison } from './Comparison'
 import { FundingSection } from './Funding'
 import { StateFilter } from './StateFilter'
 import { MapView } from './MapView'
+import { ResultMap } from './ResultMap'
 import { sortSweepRows } from '../core/sweep-sorting'
 import { AskPanel } from './ai/AskPanel'
-import { figureInputsFromAreaRows, figureInputsFromMetrics } from './ai/figure-input'
+import { BriefingView } from './ai/BriefingView'
+import { ByoSettings } from './ai/ByoSettings'
+import {
+  briefingFiguresFromMetrics,
+  figureInputsFromAreaRows,
+  figureInputsFromMetrics,
+} from './ai/figure-input'
+import type { FigureResolver } from '../core/ai/briefing'
+import { AgentHandoff } from './ai/agent-handoff'
 
 type View = 'explore' | 'map' | 'methodology'
 
@@ -41,8 +59,50 @@ const PRESETS: { id: string; label: string; sort: SortableMetricKey | null }[] =
 
 const DEFAULT_PRESET = PRESETS[0]!
 
-// The contest surface stays offline until the separately scoped live wiring is approved.
-const HOUSE_STUB_PROVIDER = createStubProvider()
+/**
+ * The live provider, proxy-first (plan section 5, D1/D2).
+ *
+ * The browser never holds the shared key: /api/muse/* spends it server-side.
+ * A visitor's own key is read lazily from localStorage and used only after the
+ * shared path reports itself shut off, so a key stored later in the visit works
+ * without remounting the app. The stub provider remains in provider.ts for
+ * tests; no shipped mount uses it.
+ */
+const HOUSE_PROVIDER = createLiveProvider({
+  direct: { baseUrl: META_API_BASE, model: MUSE_SPARK_MODEL, getApiKey: getMetaKey },
+})
+
+/**
+ * Checks a pasted personal key through the shipped provider, not a guessed
+ * endpoint.
+ *
+ * `ByoSettings` takes a probe so that a key is never stored as if it had been
+ * checked: a rejected key (401 or `invalid_api_key`) is reported as rejected and
+ * nothing is saved, and an unreachable provider is reported as a network verdict
+ * rather than as a bad key. The probe is one small intent request through the
+ * same direct client the visitor's own calls use, so success means the key
+ * actually works for this app's calls - which is the only claim the settings
+ * surface makes.
+ */
+const metaKeyProbe: MetaKeyFetcher = async (key) => {
+  const probe = createMetaDirectProvider({
+    baseUrl: META_API_BASE,
+    model: MUSE_SPARK_MODEL,
+    getApiKey: () => key,
+  })
+  try {
+    await probe.intent(
+      { slots: { geographyHints: [], metricHints: [] }, queryText: 'check this key', locale: 'en' },
+      new AbortController().signal,
+    )
+    return { ok: true, bodyValid: true }
+  } catch (error) {
+    if ((error as ProviderCallError).code === 'bad_key') return { ok: false, bodyValid: true }
+    // Anything else is the provider or the network talking, so the verdict is
+    // "could not check" and the key stays out of storage.
+    throw error
+  }
+}
 
 type ScreeningSort = {
   presetId: string
@@ -147,6 +207,8 @@ export default function App() {
     [placeIndex],
   )
 
+  const [similaritySeed, setSimilaritySeed] = useState('')
+
   const askFigures = useMemo(
     () =>
       Object.values(q.drilldowns).flatMap((detail) =>
@@ -156,6 +218,32 @@ export default function App() {
         ),
       ),
     [q.drilldowns, placeLabel],
+  )
+  const briefingFigures = useMemo(
+    () =>
+      Object.values(q.drilldowns).flatMap((detail) =>
+        briefingFiguresFromMetrics(detail.metrics, detail.zcta),
+      ),
+    [q.drilldowns],
+  )
+  const briefingPlaces = useMemo(
+    () => Object.values(q.drilldowns).map((detail) => detail.label || detail.zcta),
+    [q.drilldowns],
+  )
+  /**
+   * Pack re-verification re-reads the figure from the data layer's
+   * current drilldown state at generation time — not from the snapshot
+   * the panel rendered with — so a figure changed since render fails
+   * its check instead of shipping.
+   */
+  const resolveBriefingFigure: FigureResolver = useCallback(
+    async (figure) => {
+      const detail = q.drilldowns[figure.geography]
+      const metric = detail?.metrics.find((m) => m.key === figure.key)
+      if (!metric) return null
+      return { value: metric.value, marginOfError: metric.quality.marginOfError }
+    },
+    [q.drilldowns],
   )
   const savedViewFigures = useCallback(
     (zips: readonly string[]) =>
@@ -170,6 +258,76 @@ export default function App() {
       void q.selectPlace({ name: place?.displayName ?? `ZIP ${zip}`, zip, state: place?.state })
     },
     [placeIndex, q.selectPlace],
+  )
+
+  /**
+   * Runs a parsed Ask intent into the view it names.
+   *
+   * This is the half of Ask that was missing: a validated intent used to have
+   * nowhere to go, so Run rendered disabled. Each mode now lands on the surface
+   * that already exists rather than on a new one.
+   *
+   * Two rules are enforced here rather than trusted to the model:
+   * - A geography is resolved through the same place index the search box uses;
+   *   an unresolvable name contributes nothing instead of a guessed ZIP.
+   * - A sweep bound the screening surface cannot express is dropped. The surface
+   *   offers a maximum for rent, burden and home value and a minimum for
+   *   households; turning "rent over $500" into "rent under $500" would answer
+   *   the opposite question, which is worse than not running it.
+   */
+  const executeIntent = useCallback(
+    (intent: ValidatedIntent): string => {
+      const zips: string[] = []
+      for (const geography of intent.geographies) {
+        const resolved = /^\d{5}$/.test(geography.trim())
+          ? geography.trim()
+          : placeIndex?.search(geography, 1)[0]?.zips[0]
+        if (resolved && !zips.includes(resolved)) zips.push(resolved)
+      }
+
+      if (intent.mode === 'lookup' || intent.mode === 'compare') {
+        if (zips.length === 0) {
+          return 'No ZIP code could be resolved from the places in this request, so nothing was opened.'
+        }
+        for (const zip of zips) addZip(zip)
+        setView('explore')
+        return `Opened ${zips.length === 1 ? '1 place' : `${zips.length} places`} in the comparison.`
+      }
+
+      if (intent.mode === 'sweep_filter') {
+        const next: Partial<Record<SortableMetricKey, number | null>> = {}
+        let dropped = 0
+        for (const filter of intent.filters) {
+          if (filter.metricKey === 'households' && filter.op === 'gt') {
+            next.households = filter.value
+          } else if (filter.metricKey !== 'households' && (filter.op === 'lt' || filter.op === 'eq_range')) {
+            next[filter.metricKey as SortableMetricKey] = filter.value
+          } else {
+            dropped += 1
+          }
+        }
+        if (Object.keys(next).length === 0) {
+          return 'This bound cannot be set on the screening table, which offers a maximum for rent, rent burden and home value and a minimum for households. Nothing was changed.'
+        }
+        setFigureFilters(next)
+        const preset = PRESETS.find((item) => item.sort === intent.metricKeys[0])
+        if (preset) setSorting({ presetId: preset.id, sortKey: preset.sort, ascending: true })
+        setView('explore')
+        return dropped === 0
+          ? 'Applied the bound to the screening table below.'
+          : `Applied ${Object.keys(next).length} bound(s); ${dropped} could not be expressed by the table and was not applied.`
+      }
+
+      const seed = zips[0]
+      if (!seed) {
+        return 'The place this similarity request starts from could not be resolved to a ZIP code.'
+      }
+      addZip(seed)
+      setSimilaritySeed(seed)
+      setView('explore')
+      return `Opened similar-ZIP search from ${seed}.`
+    },
+    [addZip, placeIndex],
   )
 
   /*
@@ -415,6 +573,13 @@ export default function App() {
                 <KeyPrompt onDismiss={() => setShowKeyPrompt(false)} autoFocus={false} />
         </div>
       )}
+
+      {/* F5a entry point: agent-guided setup, confirmed only by the app's
+          own key events. Its manual button lands on the same KeyPrompt the
+          workflow's abort path hands off to. */}
+      <div className="mt-4">
+        <AgentHandoff onOpenManual={() => setShowKeyPrompt(true)} />
+      </div>
     </>
   )
 
@@ -523,6 +688,23 @@ export default function App() {
           <>
             {searchPanel}
 
+            {/*
+              * Outside the sweep branch on purpose: the result map answers "where
+              * are the places I selected", which a selected place already answers.
+              * Waiting for the country-wide sweep to finish first would hide it
+              * behind 43 requests the reader never asked for.
+              */}
+            {q.selected.length > 0 && (
+              <ResultMap
+                places={q.selected.flatMap((place) =>
+                  place.zip ? [{ zip: place.zip, name: place.name }] : [],
+                )}
+                metricsByZip={Object.fromEntries(
+                  Object.entries(q.drilldowns).map(([zip, state]) => [zip, state.metrics]),
+                )}
+              />
+            )}
+
             {q.sweepStatus === 'needs-key' ? (
               <p className="mt-6 text-sm text-slate-700">
                 Add a free Census key above to load every ZIP code, then the map draws them.
@@ -537,7 +719,7 @@ export default function App() {
                   rows={q.sweep}
                   loading={(q.sweepProgress?.done ?? 0) < (q.sweepProgress?.total ?? 0)}
                   selectedZctas={q.selectedZctas}
-                  explainProvider={HOUSE_STUB_PROVIDER}
+                  explainProvider={HOUSE_PROVIDER}
                   onSelect={(zctas) => {
                     for (const zcta of zctas.slice(0, 6)) {
                       const row = q.sweep.find((r) => r.zcta === zcta)
@@ -550,7 +732,7 @@ export default function App() {
                   drilldowns={q.drilldowns}
                   onDeselect={q.deselect}
                   placeLabel={placeLabel}
-                  explainProvider={HOUSE_STUB_PROVIDER}
+                  explainProvider={HOUSE_PROVIDER}
                 />
 
                 {q.sweepFromCache && (
@@ -572,7 +754,45 @@ export default function App() {
         ) : (
           <>
             <div className="mb-6 panel panel-padded">
-              <AskPanel provider={HOUSE_STUB_PROVIDER} figures={askFigures} />
+              <AskPanel
+                provider={HOUSE_PROVIDER}
+                figures={askFigures}
+                onExecute={executeIntent}
+                clarificationCandidates={{ geographies: [], metricKeys: [...DISPLAYABLE_KEYS] }}
+              />
+              {/*
+                The personal-key settings used to be exported and mounted
+                nowhere, which made two written promises unreachable: the
+                privacy text's "if a visitor chooses to supply a key" and the
+                agent workflow's manual hand-off for the Meta key, which points
+                at exactly this surface. A disclosure rather than an always-open
+                form: shared mode needs no key, so the key field is one deliberate
+                disclosure away instead of competing with the question box.
+                details/summary is used rather than a scripted toggle because it is
+                keyboard-operable and announced as a disclosure without any JS.
+              */}
+              <details className="mt-4 rounded-md border border-slate-200 px-3 py-2">
+                <summary className="cursor-pointer text-sm font-medium text-slate-900">
+                  Use your own Meta key instead
+                </summary>
+                <p className="mt-2 text-xs text-slate-600">
+                  Optional. The shared allowance needs no key. A personal key stays in this browser,
+                  is sent only to api.meta.ai by your own calls, and reaches no CivicScope server.
+                </p>
+                <div className="mt-3">
+                  <ByoSettings fetcher={metaKeyProbe} />
+                </div>
+              </details>
+            </div>
+            <div className="mb-6 panel panel-padded">
+              <BriefingView
+                provider={HOUSE_PROVIDER}
+                title="Selected places"
+                viewKind="drilldown selection"
+                places={briefingPlaces}
+                figures={briefingFigures}
+                resolveFigure={resolveBriefingFigure}
+              />
             </div>
             {searchPanel}
             {showKeylessGuidance && (
@@ -776,10 +996,12 @@ export default function App() {
                     off state is the default view, not an absence.
                   */}
                   <SimilarityPanel
+                    key={similaritySeed || 'similarity'}
                     sweep={q.sweep}
                     selected={q.selectedZctas}
                     onAdd={(zcta) => addZip(zcta)}
-                    explainProvider={HOUSE_STUB_PROVIDER}
+                    explainProvider={HOUSE_PROVIDER}
+                    initialOriginZip={similaritySeed}
                   />
 
                   <SweepTable
@@ -799,7 +1021,7 @@ export default function App() {
                     }}
                     selectedZctas={q.selectedZctas}
                     placeLabel={placeLabel}
-                    explainProvider={HOUSE_STUB_PROVIDER}
+                    explainProvider={HOUSE_PROVIDER}
                   />
                 </section>
 
@@ -807,7 +1029,7 @@ export default function App() {
                   drilldowns={q.drilldowns}
                   onDeselect={q.deselect}
                   placeLabel={placeLabel}
-                  explainProvider={HOUSE_STUB_PROVIDER}
+                  explainProvider={HOUSE_PROVIDER}
                 />
               </>
             )}
@@ -839,7 +1061,7 @@ export default function App() {
                 drilldowns={q.drilldowns}
                 onDeselect={q.deselect}
                 placeLabel={placeLabel}
-                explainProvider={HOUSE_STUB_PROVIDER}
+                explainProvider={HOUSE_PROVIDER}
               />
             )}
 
@@ -855,7 +1077,7 @@ export default function App() {
             <SavedSearches
               selectedZctas={q.selectedZctas}
               onRestore={(zips) => zips.forEach(addZip)}
-              explainProvider={HOUSE_STUB_PROVIDER}
+              explainProvider={HOUSE_PROVIDER}
               figuresForSaved={savedViewFigures}
             />
 

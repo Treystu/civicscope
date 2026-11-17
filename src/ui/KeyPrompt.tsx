@@ -3,6 +3,8 @@ import {
   CENSUS_SIGNUP_URL,
   clearCensusKey,
   getCensusKey,
+  getCensusKeySource,
+  getSharedCensusKey,
   rememberReturnPath,
   setCensusKey,
   validateCensusKey,
@@ -88,7 +90,14 @@ export function KeyPrompt({
     clearCensusKey()
     setValue('')
     setPhase('idle')
-    setMessage('Key removed. You are back to the reduced dataset.')
+    // The fallback after removal depends on the deployment: with a shared
+    // application key the full dataset stays available on it; without one
+    // the visitor is back to the reduced dataset. Say which one happened.
+    setMessage(
+      getSharedCensusKey()
+        ? 'Your key was removed. The shared application key is carrying the full dataset again.'
+        : 'Key removed. You are back to the reduced dataset.',
+    )
   }
 
   if (phase === 'done') {
@@ -118,6 +127,14 @@ export function KeyPrompt({
         minute, and <strong>your key is stored only in this browser</strong> — it is never sent to us, and we
         keep no log of what you search for.
       </p>
+
+      {getCensusKeySource() === 'shared' && (
+        <p className="mt-2 text-amber-900" role="status">
+          This site is currently running on the project&rsquo;s shared application key, so the full dataset is
+          already available. Adding your own key is optional: it replaces the shared key for your visits and is
+          stored only in this browser.
+        </p>
+      )}
 
       <ol className="mt-3 list-decimal space-y-1 pl-5 text-amber-900">
         <li>Open the free Census key form in a new tab.</li>
