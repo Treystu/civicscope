@@ -79,11 +79,24 @@ durations together.
 
 ## 4. The gate run itself
 
-A full `node --no-deprecation tools/completion-gate.mjs` run was started at 09:09 UTC
-against main, and reached the live-contract stage before this window's filing time. Its
-deterministic total is printed only at the end of that stage, so this file does not
-claim a total it did not read. What it did produce, stage by stage, is section 3 above,
-and the missing piece is named: a network path, not a check result.
+A full `node --no-deprecation tools/completion-gate.mjs` run was started at 09:16 UTC
+against main with `SKIP_E2E=1` (the workspace cannot launch a browser, so the alternative
+was a stage that fails at launch, not a stage that measures). At 09:26 UTC, ten minutes
+in, it was still inside the live-contract stage, with one TCP connection open and idle
+to `165.224.128.225:443` and no output yet, because the gate prints its deterministic
+total only after that stage returns.
+
+This file therefore does not claim a deterministic total for main. What it does claim is
+section 3, stage by stage, plus the reason the total is missing: a third-party host that
+completes a TCP handshake and never answers, bounded per test only by the suite's own
+300-second timeout. A stall is not a failing check, and inventing the total from the
+four stages that did run would be exactly the kind of number this gate exists to
+prevent.
+
+The stage that did not run is worth naming precisely: `SKIP_E2E=1` skips the WCAG audit,
+which in this workspace could only fail at browser launch. That is a documented,
+instrument-supported skip, and it is why no accessibility reading appears anywhere in
+this file.
 
 Read with the staged readings, the honest statement about main's deterministic layer is:
 
