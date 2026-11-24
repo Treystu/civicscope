@@ -76,14 +76,23 @@ Read from the API:
 | Actions `completion-gate` | failure, 2 s | failure, 2 s |
 | CircleCI `verify` | success | success |
 | CircleCI `live-contracts` | success | success |
-| CircleCI `completion-gate` | **failure** | **pending** at the time of writing |
+| CircleCI `completion-gate` | **failure** | **failure** |
 
 So the Actions failures are not new: the same three check runs fail in one to two seconds
 at the base commit, which is the known "runner never starts" signature, not a test result.
 On the rail that actually runs, `verify` and `live-contracts` are green at both commits and
-the gate was already red at the base. Nothing green at `0b59f72` is red at `573557f`. The
-gate job at `573557f` has to be read once it finishes; if it fails it will fail on the same
-`GATE_EXPECT_DEPLOYED` rule that failed it at the base, not on these five files.
+the gate is red at both. Nothing green at `0b59f72` is red at `573557f`. The gate finished
+red at `573557f` after the push, and its failing clause cannot be read from this workspace:
+the CircleCI v2 job endpoint answers `502`/`404` without credentials and there is no
+`circleci` CLI here, so the failure text has to come from the dashboard.
+
+What can be said without the log is why the five files cannot be the cause. The gate's
+inputs are the whole tree; outside `docs/standup` the tree is byte-identical to the base,
+so every clause reading source, tests, config or named docs sees exactly what it saw at
+`0b59f72`, where the job also failed. The five new files are read by one clause only, the
+directory-wide mojibake/BOM scan, and they pass it. A red at `573557f` is therefore
+inherited from the base, not introduced by the push - consistent with the `main`-only
+`GATE_EXPECT_DEPLOYED=1` rule, though that remains inference until the dashboard is read.
 
 ## The revert, rehearsed
 
