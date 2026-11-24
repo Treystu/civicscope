@@ -28,6 +28,19 @@ Branch: `freebuff/efba53c4941d50ab6d8f229e`. Base read at: `main`
 - Patch-id recount of the eight `archive/20261021/*` refs at main: 9 of 13 unique
   commits have no equivalent, which matches #64's corrected row 16 and does not
   reproduce #31's 2026-11-07 "zero" reading.
+- 2026-11-24, `docs/standup/2026-11-22-deploy-blocked-prep.md` revised with the two
+  things that pack was missing:
+  - The #31 per-branch verdict table: all thirteen commits with both counts (13 unique,
+    9 patch-distinct), tip content per file (115 files: 61 byte-identical to main now,
+    54 present earlier in main's history, 0 never present), and a line-level sample
+    (4,868 of 5,073 added lines present, 96.0%). Verdict: nothing on the eight refs is
+    missing from main; the deletion is an authorisation act, not a content question.
+  - The seven mechanical privacy-checklist rows re-run against lane head `30a29317`
+    from the commit tree; all seven hold, with the `style-src 'unsafe-inline'` nuance
+    recorded so a whole-policy grep does not wrongly fail row 7.
+- Method scripts for the table live in the untracked `.lane/` workspace
+  (`verdict.mjs`, `branch-content.mjs`, `superseded.mjs`); the doc states the method in
+  prose so it can be re-run without them.
 
 ## WIP
 
@@ -40,7 +53,8 @@ stalled; its log is workspace-local (`.lane/`) and is deliberately not committed
    the landing pack).
 2. Apply the clause_7 restatement at `tools/completion-gate.mjs:1189` under #79 Option B,
    then re-measure. Both wait for the lift; neither is done here.
-3. Owner acts: #63 signature, #59 human run, #64 Explain split, #31 ref deletion.
+3. Owner acts: #63 signature, #59 human run, #64 Explain split, #31 ref deletion (its
+   step 3 table is now filed; only the authorisation is outstanding).
 
 ## BLOCKERS
 
