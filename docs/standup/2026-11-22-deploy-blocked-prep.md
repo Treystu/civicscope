@@ -1,7 +1,8 @@
 # Deploy-blocked prep packs: #31, #63, #59
 
 Written 2026-11-22, revised 2026-11-24 with the #31 per-branch verdict table and the
-privacy-checklist re-run. Prep only. No ref was deleted, nothing was deployed, no
+privacy-checklist re-run, then corrected the same day on the similarity-export reading
+(the claim was "the same nine symbols"; main and `2875dd7` export 13, `bd6e55f` 10). Prep only. No ref was deleted, nothing was deployed, no
 submission act was performed, and no issue was commented on, closed or relabelled. Each
 pack states what the act needs, what exists, and what is missing, so the act is one step
 when the checkpoint lifts.
@@ -131,11 +132,26 @@ content identical. The content columns above are what settles it:
   figure was a much smaller category under a larger label, and it replaced
   `meanCommuteMinutes: 'B08303_001'` - a headcount under a minutes label - with the
   published count and a note that the publisher has no mean-commute figure at all.
-- `bd6e55f`'s similarity search is in main in full: `src/core/similarity.ts` there
-  exports the same nine symbols as the branch tip, and the panel is mounted from
-  `App.tsx`. The file differs from the tip by 16 lines of doc wording plus swapping a
-  local `formatFigure` helper for the House layer's `ExplainAction` wiring; the panel
-  differs by 72 lines, the same later wiring. Both are supersession, not absence.
+- `bd6e55f`'s similarity search is in main as an earlier state of a file main has since
+  extended. The export lists, read per rev with
+  `git show <rev>:src/core/similarity.ts | grep '^export'`, are: main `0b59f724` **13**
+  exported symbols (`SIMILARITY_METRICS`, `SimilarityMetric`, `Weights`, `DEFAULT_CUTOFF`,
+  `DEFAULT_WEIGHTS`, `MetricRange`, `computeRanges`, `SimilarArea`, `comparisonDims`,
+  `distance`, `findSimilar`, `originFigures`, `isSimilarityMetric`); `bd6e55f` **10**,
+  and all ten are in main's thirteen. The three main has and `bd6e55f` does not are
+  `MetricRange`, `computeRanges` and `comparisonDims`, added by `f91e529` (#28, the
+  similarity-distance work patch-equivalent to `2875dd7`). The set relation is therefore
+  main superset of the ref, which is supersession; nothing on the ref is absent from main.
+
+  The "identical list, 16-line diff" reading belongs to `2875dd7`, not `bd6e55f`:
+  there the thirteen names match main name for name and the file differs by 16 lines
+  (8 insertions, 8 deletions) of doc wording about disclosed starting weights. Against
+  `bd6e55f` the same file differs by 170 lines (45/125) and the panel
+  `src/ui/SimilarityPanel.tsx` by 93 (26/67), because `bd6e55f`'s panel carries a local
+  `formatFigure` helper where main wires the House layer's `ExplainAction`. Main mounts
+  the panel from `src/ui/App.tsx:778`, `bd6e55f` from `src/ui/App.tsx:679`. An earlier
+  revision of this pack said "the same nine symbols" and attached the 16- and 72-line
+  figures to `bd6e55f`; both readings were wrong and are corrected here.
 - `b851721`'s `MetricUnit` gains `'institutions'` and its gate regex are both in main's
 `src/core/types.ts:50` and `tools/completion-gate.mjs`.
 - The remaining "missing" lines are comments and planning prose: `docs/canon-work-mission.md`

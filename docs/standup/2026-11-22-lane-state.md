@@ -41,6 +41,13 @@ Branch: `freebuff/efba53c4941d50ab6d8f229e`. Base read at: `main`
 - Method scripts for the table live in the untracked `.lane/` workspace
   (`verdict.mjs`, `branch-content.mjs`, `superseded.mjs`); the doc states the method in
   prose so it can be re-run without them.
+- 2026-11-24, second correction to the same pack: the `bd6e55f` similarity bullet claimed
+  "the same nine symbols". Read from the trees, `src/core/similarity.ts` exports **13**
+  symbols at main `0b59f724` and at `2875dd7`, and **10** at `bd6e55f` - whose ten are all
+  in main's thirteen (main's extra three, `MetricRange`/`computeRanges`/`comparisonDims`,
+  came in with `f91e529`, #28). The "16-line file diff" belongs to `2875dd7`; against
+  `bd6e55f` the file differs by 170 lines and `src/ui/SimilarityPanel.tsx` by 93. Bullet
+  rewritten with the per-rev readings and the wrong figures named as corrected.
 
 ## WIP
 
@@ -55,6 +62,29 @@ stalled; its log is workspace-local (`.lane/`) and is deliberately not committed
    then re-measure. Both wait for the lift; neither is done here.
 3. Owner acts: #63 signature, #59 human run, #64 Explain split, #31 ref deletion (its
    step 3 table is now filed; only the authorisation is outstanding).
+
+### Highest-value unstarted follow-ups (listed, not started)
+
+1. **Bound the live-contract stage so the gate can report a total.** The deterministic
+   layer's total is the one reading main has never produced here, and it is missing
+   because one third-party host stalls a test for its full 300 s bound. Shorter bound or
+   an env flag around the live host calls, then one run. Highest value: every #79 number
+   quoted downstream depends on it.
+2. **Write the #59 non-author run protocol.** The artefact and in-app handoff exist; what
+   does not is the script a clean-account human executes plus the capture template for
+   `docs/agent-onboarding/run-record.md`. The owner act cannot start without it.
+3. **Turn #63's deployed-config half into a command sequence.** Four checks need a serving
+   build; each is one `curl -I` or one header read. Writing them now makes the post-lift
+   verification mechanical instead of remembered.
+4. **Measure the #64 Explain claimed-vs-stretch split.** The owner-reserved decision is a
+   split of claims; a table of claimed versus stretch with file and line turns it into a
+   yes/no instead of a review.
+5. **File #67's program state.** The champion-audit tracker has no state document beyond
+   one census row; its component items (#71-#77) and their cure commits are all
+   identifiable from the lane history.
+6. **A CI job spec for the WCAG stage.** The stage cannot run in this workspace (no
+   `libnspr4`, no root); a job definition that runs where a browser exists is the only
+   way this lane ever gets that reading.
 
 ## BLOCKERS
 
