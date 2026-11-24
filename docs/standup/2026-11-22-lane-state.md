@@ -102,6 +102,12 @@ pushing to the base, and it is recorded here rather than repaired unilaterally: 
 it means either a revert commit on `main` or a rewrite of `main`, and both are owner acts
 under the same checkpoint.
 
+Blast radius measured from `origin` and the revert rehearsed without applying it:
+`docs/standup/2026-11-24-main-push-blast-radius.md`. Outside `docs/standup/` the tree is
+byte-identical to `0b59f72`; `verify` and `live-contracts` are green on CircleCI at both
+commits; the revert of `0b59f72..573557f` reproduces the base tree
+exactly (`2a4eb9a0...`) and waits on authorisation.
+
 What the lane did about it: no further push was made to the default target, the lane
 branch is addressed by name from here on, and the owner is told in the chat with the two
 SHAs above. `573557f` is already reachable from `main`, so the lane branch was fast-
