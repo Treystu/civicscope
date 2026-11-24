@@ -1,0 +1,16 @@
+--- a/tools/completion-gate.mjs
++++ b/tools/completion-gate.mjs
+@@ -1186,7 +1186,12 @@
+     ],
+   },
+   {
+-    req: 'no advertising, analytics, search logging, accounts or runtime backend',
++    // clause_7, restated under the owner ruling of 2026-11-21 (Option B), filed on issue
++    // #79 and effective from the first gate pass after the checkpoint lift. The old
++    // clause demanded 'no runtime backend', which the /api/muse/* proxy makes
++    // unsatisfiable on verified evidence; the threshold is unchanged at 99.
++    req:
++      'no advertising, analytics, search logging or accounts anywhere; the housing data layer is serverless; the AI proxy is stateless and stores nothing - counts only, no bodies, no query text, no IP addresses, no keys',
+     proofs: ['city search contacts no external origin', 'CSP connect-src allowlist is deployed'],
+   },
+   {

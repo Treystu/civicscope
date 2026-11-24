@@ -116,16 +116,32 @@ forwarded to it rather than rewritten.
 ## BLOCKERS
 | Blocker | Affects | State |
 | --- | --- | --- |
-| Owner checkpoint | every merge, deploy, instrument edit | HELD |
+| Owner checkpoint | merges, production deploy | blanket form STRUCK 2026-11-23; merges and deploy remain owner-only as a class |
+| Owner holds, preserved by the strike | PR #32, #31 ref deletion, #63 sign-off | HELD, owner acts |
 | `TYPESAFE_API_KEY` absent | any semantic gate reading anywhere in this workspace | absent, and no key is requested |
 | No browser runtime (missing `libnspr4`, no root) | the WCAG 2.2 AA stage | not installable here |
 | Idle third-party host (NY-schools live test) | the live-contract stage | stalls to the suite's own 300 s timeout |
 
 ## DIRECTIVES
 
-No new comment from the owner or oversight was found after `2026-11-22T06:33:45Z`, the
-timestamp of the #79 retarget entry. The open issue set is unchanged at six, and the open
-PR set unchanged at two. The standing hold is the only directive in force.
+Governing entry: `#79` at `2026-11-23T08:01:53Z`, by `Treystu` - the blanket owner
+checkpoint is STRUCK from this lane's mission, and preserved are PR #32's HOLD, the #31
+archive-ref deletion, the #63 privacy sign-off, and merges and production deploy as
+owner-only acts. The lane is handed two items: the clause_7 Option B instrument edit plus
+its re-measurement (ruling of `2026-11-22T06:33:45Z`, threshold 99 unchanged, effective
+from the next gate pass), and PR #66's queue to DECISION-READY.
+
+Earlier entry `2026-11-22T06:33:45Z` (#79 retarget) deferred the edit until the checkpoint
+was "separately lifted"; the 11-23 strike is that lift, so the edit is lane work now.
+Nothing else moved: `#59`, `#63`, `#64`, `#67` still carry their `2026-11-17` entries as
+their newest, the open set is six issues and two PRs, and `#31`'s 2026-11-24 timestamps are
+`freebuff-web[bot]` reference events for this lane's own commits, not comments.
+
+State of the clause_7 act: the clause exists only at `30a29317`, so
+`docs/standup/clause-7-restatement.patch` is prepared against that head
+(`git apply --check` clean, `node --check` clean, +6/-1) and not yet pushed or landed;
+clause_7 does not exist on `main` or on this lane branch at all. See
+`docs/standup/2026-11-24-checkin.md`.
 
 ## What this lane did not do
 
