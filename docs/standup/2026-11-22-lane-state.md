@@ -143,6 +143,13 @@ State of the clause_7 act: the clause exists only at `30a29317`, so
 clause_7 does not exist on `main` or on this lane branch at all. See
 `docs/standup/2026-11-24-checkin.md`.
 
+Measured under the restated clause at `30a29317` + patch: **99/100 deterministic checks**,
+28 cited proof pairs with 27 passed, sole unproven clause the WCAG audit (no browser),
+clause_7 proven on both proofs, threshold 99, and the gate reading `not measured` because
+the semantic layer needs `TYPESAFE_API_KEY`. Two controls (patched vs unpatched under
+`SKIP_NETWORK=1`) produce identical failure sets. Record:
+`docs/standup/2026-11-24-clause7-remeasurement.md`.
+
 ## What this lane did not do
 
 No merge, no deploy, no push to or modification of PR #66 or PR #32, no submission act,
