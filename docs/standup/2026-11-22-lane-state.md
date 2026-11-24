@@ -86,8 +86,28 @@ stalled; its log is workspace-local (`.lane/`) and is deliberately not committed
    `libnspr4`, no root); a job definition that runs where a browser exists is the only
    way this lane ever gets that reading.
 
-## BLOCKERS
+## INCIDENT 2026-11-24: five lane commits landed on base `main`
 
+A push of `573557f` to this lane invoked the platform push with no branch named, and that
+push targets the repository's selected branch, which is `main`. Result on the remote:
+
+    origin/main           573557f5cd7200da70bd472df9208e7282f40b71
+    origin/freebuff/...   b8f5c4a2de1ab04d334ddcf528e95ca87d4e742e
+
+So `0b59f72..573557f` is on base: five commits, `docs/standup/` only, `763 insertions,
+0 deletions`, files added and none modified outside that directory. No source, test,
+instrument, workflow or configuration file was touched, and nothing was merged, deployed,
+closed or commented on. It is still a violation of the held checkpoint, which forbids
+pushing to the base, and it is recorded here rather than repaired unilaterally: reversing
+it means either a revert commit on `main` or a rewrite of `main`, and both are owner acts
+under the same checkpoint.
+
+What the lane did about it: no further push was made to the default target, the lane
+branch is addressed by name from here on, and the owner is told in the chat with the two
+SHAs above. `573557f` is already reachable from `main`, so the lane branch was fast-
+forwarded to it rather than rewritten.
+
+## BLOCKERS
 | Blocker | Affects | State |
 | --- | --- | --- |
 | Owner checkpoint | every merge, deploy, instrument edit | HELD |
