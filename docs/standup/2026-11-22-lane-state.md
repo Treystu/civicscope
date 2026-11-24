@@ -150,6 +150,12 @@ the semantic layer needs `TYPESAFE_API_KEY`. Two controls (patched vs unpatched 
 `SKIP_NETWORK=1`) produce identical failure sets. Record:
 `docs/standup/2026-11-24-clause7-remeasurement.md`.
 
+PR #66 landing pack re-derived at these heads on 2026-11-24 (`main` `573557f`, PR head
+`30a29317`, #32 head `d303e04a`): 9 main-only / 127 PR-only commits, the three #78/#80
+cures reachable from the PR head and absent from main, the clause_7 patch applying to
+both `30a29317` and the merged tree `28002849`, and clean merge-trees for both base
+options. File: `docs/standup/2026-11-22-pr66-landing-pack.md`.
+
 ## What this lane did not do
 
 No merge, no deploy, no push to or modification of PR #66 or PR #32, no submission act,
