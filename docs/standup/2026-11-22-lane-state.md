@@ -4,7 +4,8 @@ Status record in the LANE PROTOCOL shape (AGENTS.md, section "LANE PROTOCOL", it
 so this lane resumes from GitHub alone.
 
 Branch: `freebuff/efba53c4941d50ab6d8f229e`. Base read at: `main`
-`0b59f724a8830a05f385f9cd8c1789ac0a2417d9`.
+`573557f5cd7200da70bd472df9208e7282f40b71` (2026-11-25; originally `0b59f724`, moved
+by the five docs-only filings recorded in the incident section).
 
 ## DONE
 
@@ -22,6 +23,12 @@ Branch: `freebuff/efba53c4941d50ab6d8f229e`. Base read at: `main`
   - `2026-11-22-deploy-blocked-prep.md`: prep packs for #31, #63, #59.
 - `f0692f6` records why the gate's deterministic total is missing at main (a stalled
   third-party connection, not an unrun check).
+- 2026-11-25, `2026-11-25-state.md` re-derives the census from the rendered open-issue
+  payload: still six issues, every `updatedAt` identical to 2026-11-24, so the `#79`
+  entry of `2026-11-23T08:01:53Z` remains the newest directive. PR #66 reads `DRAFT`,
+  PR #32 reads `OPEN`, both heads unmoved. Divergence `9 127`, merge tree `28002849`
+  exit 0, the clause_7 patch applies at `30a29317`, and all three #78/#80 cures are on
+  the PR head and absent from `main` - so the landing pack needs no amendment.
 - Merge test of `30a29317` onto `0b59f724`: clean, exit 0, no conflicting paths, 180
   files, README and `.circleci/config.yml` both preserved. Nothing committed or pushed
   by that test; the detachment worktree was removed.
