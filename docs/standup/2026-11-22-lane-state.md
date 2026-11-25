@@ -29,6 +29,13 @@ by the five docs-only filings recorded in the incident section).
   PR #32 reads `OPEN`, both heads unmoved. Divergence `9 127`, merge tree `28002849`
   exit 0, the clause_7 patch applies at `30a29317`, and all three #78/#80 cures are on
   the PR head and absent from `main` - so the landing pack needs no amendment.
+- 2026-11-25, `2026-11-25-second-reading.md` repeats the census and the chain
+  preconditions at `12:43:37Z` after a second dispatch: the same six issues with every
+  `updatedAt` unchanged, PR #66 `DRAFT` and PR #32 `OPEN`, all four heads unmoved,
+  divergence `9 127`, merge tree `28002849` exit 0, the clause_7 patch exit 0 at
+  `30a29317`, and the three #78/#80 cures still on the PR head only. It also records the
+  payload's shape (`"issue":{...}` wrapper; the adjacent `"name"` is the assignee, not a
+  label) so the six-issue count is reproducible from the page alone.
 - Merge test of `30a29317` onto `0b59f724`: clean, exit 0, no conflicting paths, 180
   files, README and `.circleci/config.yml` both preserved. Nothing committed or pushed
   by that test; the detachment worktree was removed.
