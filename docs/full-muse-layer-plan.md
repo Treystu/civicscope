@@ -87,7 +87,7 @@ The guaranteed core of the Meta-tooling score: a Meta model doing real, structur
 
 #### L1.3 Briefing pack + methodology Q&A (F6) — commit fully or cut (Decision D6)
 
-This plan **assumes committed at full scope**; §9 keeps D6 open for Lucas because the commitment is his. There is no partial tier.
+This plan **assumes committed at full scope**; D6 ruled 2026-10-25: commit fully. There is no partial tier.
 
 - **Briefing pack for any user-built selection/view** (not pre-chosen areas): existing CSV export + a Muse-written narrative + a full methodology/citation appendix generated from the plugin registry. Every included figure is **re-verified against its `SourceRef` at generation time**; a tampered-figure fixture makes generation fail loudly, not ship.
 - **Methodology Q&A grounded in the entire registry + coverage records + `docs/data-sources-research.md` corpus:** answers questions like *“Why is there no graduation rate for this ZIP?”* or *“How current is this rent figure?”* for any registered metric/geography, and refuses — with the boundary stated — anything outside that corpus. It answers *about* the data; data questions go through L1.1/L1.2, where figures are retrieved, never recalled.
@@ -223,7 +223,7 @@ Every row of the re-scope's 20-row error/edge matrix is a *specified behaviour p
 
 **Recommended end state (Decision D1, plan default): hybrid.** A stateless same-origin Pages Function proxy spends the shared $150 allowance first (so a first-time visitor — and a judge — gets AI with zero setup), with BYO-key (agent-assisted or manual) beyond it, and the circuit breaker degrading the operator path to BYO-prompt / deterministic fallback rather than retry-hammering a paid API. Requirements binding on the proxy (re-scope §2): no storage bindings and no content logging *by construction and by inspected deployment config*; model/shape allowlist (it serves only the named Muse Spark model(s) and only CivicScope request shapes — it is not a general-purpose LLM relay); per-request token ceilings; aggregate counters only (counts, never content); documented key rotation/revocation. BYO mode: the key lives only in the user's browser `localStorage`; network assertions in e2e prove it is sent only to the Meta API origin, and the Census key only to `api.census.gov`.
 
-**Privacy consequence, in one sentence (the sentence the shipped privacy text must be able to say, word for word):** *Under the hybrid, a stateless same-origin proxy that stores and logs nothing spends the shared allowance first — sending the API structured slots, not raw query text, wherever the feature allows — and beyond it your own Meta key stays in your browser and is sent only to Meta, so CivicScope never receives, stores, or logs any key of yours.* (Whether raw query text may ever transit to Meta, and whether even aggregate counters stand, is Decision D5 — Lucas's call, surfaced here rather than decided quietly in implementation.)
+**Privacy consequence, in one sentence (the sentence the shipped privacy text must be able to say, word for word):** *Under the hybrid, a stateless same-origin proxy that stores and logs nothing spends the shared allowance first — sending the API structured slots, not raw query text, wherever the feature allows — and beyond it your own Meta key stays in your browser and is sent only to Meta, so CivicScope never receives, stores, or logs any key of yours.* (Decision D5, ruled 2026-10-25: proxy-side minimisation — structured slots, not raw query text, wherever the feature allows — plus standing disclosure in the privacy text; aggregate counters stand on that basis.)
 
 ---
 
@@ -318,9 +318,11 @@ The budget is enforced by the F0 proxy meter and the F7 aggregate counters — p
 | Bucket | Cap | What it funds | Guardrail |
 |---|---|---|---|
 | Live eval & contract tier (§6.3 Tier 3) | **40% ($60)** | Recorded live eval runs + contract checks during the build; the evidence the submission quotes — **including L4 Wonder's offline grading calls**, which draw from this same bucket | Runs are sampled, not exhaustive; Wonder grading is batch over the sampled prose set only, at its published per-token rate, sample size is the cost control, and its spend is metered by the same aggregate counters; every run logged (aggregate) with its score artefact |
-| Judging-window shared allowance (proxy) | **35% ($52.50)** | First-visit AI for judges and public users via the hybrid proxy during Nov 4–9 judging | Per-client aggregate rate limits; per-request token ceilings; hard shutoff at cap → BYO prompt (§4) |
-| Build iteration | **15% ($22.50)** | Prompt/schema iteration against the real API during development | Hermetic fixtures are the default; live calls are deliberate, not a debug loop |
-| Reserve | **10% ($15)** | Unspent buffer for a final live-tier re-run and judging-week surprises | Released only by an explicit decision recorded in the evidence pack |
+| Judging-window shared allowance (proxy) | **20% ($30)** | First-visit AI for judges and public users via the hybrid proxy during Nov 4–9 judging | Per-client capped aggregate rate limits; per-request token ceilings; hard shutoff at cap → BYO prompt (§4). Judging experience protected by the small allowance + BYO fallback + recorded fallback video + keyless first act |
+| Build iteration | **25% ($37.50)** | Prompt/schema iteration against the real API during development | Hermetic fixtures are the default; live calls are deliberate, not a debug loop |
+| Reserve | **15% ($22.50)** | Unspent buffer for a final live-tier re-run and judging-week surprises | Released only by an explicit decision recorded in the evidence pack |
+
+Amended 2026-10-25 (owner-approved): judging-window 35% → 20%, build iteration 15% → 25%, reserve 10% → 15%; live eval unchanged at 40%. Post-event life stays BYO-after-credits (D2).
 
 BYO usage (L2-assisted or manual) costs the operator nothing and is uncapped by this budget — which is precisely why the hybrid, not proxy-only, is the recommended end state (§5, Decision D2).
 
@@ -412,7 +414,7 @@ No step starts before its dependencies exist; building NL or Explain before F0/F
 
 | Seq | Step | Depends on | Produces |
 |---|---|---|---|
-| S1 | Lucas decisions D1 + D5 (+ D6, D4 defaults confirmed) | — | The end states every later step encodes |
+| S1 | Lucas decisions D1–D8 — ALL RULED 2026-10-25 (D1 hybrid, D2 BYO-after-credits, D3 official Muse workflow in-repo, D4 strict, D5 proxy minimisation + standing disclosure, D6 commit fully, D7 English-only, D8 “Muse layer”); dual-track Plan A/B; §6.4 budget as amended | — | The end states every later step encodes |
 | S2 | F0 key architecture (proxy + BYO + validation + secret scan + CSP) | S1 | A lawful place for a key to live; budget meter live from the first live call |
 | S3 | F4 validator + fair-housing gates (with fuzz/adversarial fixtures) | S2 | No generated text can reach a user before this exists |
 | S4 | F1 registry intent layer (schema, allowlist, synonym layer, clarification, chips, URL-state) | S3 | Typed, visible, editable intent over the full registry |
@@ -475,22 +477,34 @@ No step starts before its dependencies exist; building NL or Explain before F0/F
 - **What is never collected:** no analytics, no tracking, no search logging (the product's ethos binds the evidence plan too); no invented counts — if three people test it, the submission says three people tested it, with their words, rather than implying a user base.
 - **Failure honesty as evidence:** any eval shortfall, withheld-explanation examples, or user-hit error states found in the window are recorded in the evidence pack; a submission that shows its own validator's catch log is more credible on Impact than one claiming perfection.
 
-## 9. Open decisions — Lucas's calls only (end states & ramifications; no implementation tactics)
+## 9. Decisions — ruled 2026-10-25 (end states & ramifications; no implementation tactics)
 
-From the re-scope §10 (D1–D8). The plan proceeds on the stated defaults pending his call; each default is reversible at S1 and expensive after it.
+From the re-scope §10 (D1–D8). **Ruled by Lucas 2026-10-25 — S1 encodes these end states; they are expensive to change after S1.**
+
+**Rulings (owner-approved 2026-10-25):** D1 hybrid (shared-$150 proxy first, BYO beyond); D2 BYO-after-credits; D3 official Muse workflow inside the CivicScope repo; D4 strict (describe/compare cited figures, never call a place good/bad); D5 proxy-side minimisation (structured slots, not raw query text, wherever the feature allows) plus standing disclosure in the privacy text; D6 commit the briefing pack fully (1,450–2,050 LoC); D7 English-only at launch with an honest boundary; D8 “Muse layer” in-product.
+
+**Plan choice: dual-track.** Build Fusion Lite panels now (Meta has no Jev equivalent); calibrate the panels against Jev during build; submit Plan A (Meta-pure) only if a panel config meets the plan's own eval bars (≥90% decision gates, 100% safety subset); otherwise submit Plan B (Meta runtime, Jev offline-only gates, with the honest scoping line: every user-facing model is Meta).
+
+**Runner rule:** Harness may orchestrate the build, but user-facing language jobs stay Muse Spark (constrained intent parsing, grounded explanation, validator withholding invented figures); Harness never swaps in cheap non-Meta models for user-facing jobs.
+
+**Mission guardrails (unchanged):** strict fair-housing line, numeral-provenance validator, no tracking, fallback parity, honest pre-existing labelling.
+
+The D-lines below record the options and ramifications considered; the rulings above govern.
 
 - **D1 — Key architecture, i.e. what CivicScope *is* after this ships.** Proxy: first-visit AI with zero setup, but CivicScope gains its first backend and its “no server, no logging” identity changes permanently. BYO-only: the founding identity survives word-for-word, but every AI user passes a key wall (agent onboarding softens, does not remove, this). **Hybrid (plan default, §5):** best first impression, most complicated truth to state in the privacy text, two systems to keep honest forever. *Ramification: the product's core trust claim, not a hosting choice.*
 - **D2 — Who pays when the $150 is gone.** Operator-funded with caps (the free tool quietly acquires a running cost and a shutoff day), BYO-after-credits (AI becomes bring-your-own for the public, full stop), or AI features switch off at exhaustion (the submitted product and the living product diverge). *Plan default: BYO-after-credits via the hybrid, with the §6.4 caps governing the shared allowance.* *Ramification: business model and what “free” means on the homepage.*
-- **D3 — Muse-agent onboarding as an *official* path.** Publishing a Muse workflow inside CivicScope endorses one vendor's agent as the recommended way into a neutral civic tool, and couples CivicScope's onboarding quality to a product it doesn't control. The alternative — agent-agnostic instructions any agent can follow — is less magical and less Meta-scoring. Also: does the workflow live in this repo, or in a separate Muse skill published under Lucas's name? *Ramification: positioning, dependency, and where Lucas's name attaches.*
+- **D3 — Muse-agent onboarding as an *official* path.** Publishing a Muse workflow inside CivicScope endorses one vendor's agent as the recommended way into a neutral civic tool, and couples CivicScope's onboarding quality to a product it doesn't control. The alternative — agent-agnostic instructions any agent can follow — is less magical and less Meta-scoring. Also: does the workflow live in this repo, or in a separate Muse skill published under Lucas's name? *Ramification: positioning, dependency, and where Lucas's name attaches.* **RULED 2026-10-25: official Muse workflow inside the CivicScope repo.**
 - **D4 — Where “explain the difference” ends and “recommend” begins.** The product today lets a reader sort by one published figure but never ranks places for them. AI prose blurs that line with tone alone (“stands out”, “notably affordable”). Strict line: the AI may describe and compare cited figures, never characterise a place as a good/bad choice, even when asked directly. Looser line: reader-requested comparative framing is allowed within non-proxy metrics. *Ramification: the fair-housing commitment is the brand; this decision redraws it.*
-- **D5 — What a user's query may reveal to Meta.** Retrieved figures are public data, but a query is a person's interest, sent to the Meta API under any architecture. Standing disclosure in the privacy text vs an explicit per-user consent moment before the first AI call vs proxy-side minimisation (structured slots, not raw query text, wherever the feature allows). Aggregate operator counters (§4/F7) stand or fall with the same call. *Ramification: whether “we never see your searches” can still be said, and in what words.*
+- **D5 — What a user's query may reveal to Meta.** Retrieved figures are public data, but a query is a person's interest, sent to the Meta API under any architecture. Standing disclosure in the privacy text vs an explicit per-user consent moment before the first AI call vs proxy-side minimisation (structured slots, not raw query text, wherever the feature allows). Aggregate operator counters (§4/F7) stand or fall with the same call. *Ramification: whether “we never see your searches” can still be said, and in what words.* **RULED 2026-10-25: proxy-side minimisation (structured slots, not raw query text, wherever the feature allows) plus standing disclosure in the privacy text.**
 - **D6 — Briefing pack (F6): commit fully (1,450–2,050 LoC) or cut to zero.** No third option under the invariants. Committing makes journalists/organisers a first-class AI audience; cutting keeps the entire build on the features every user touches. *Plan default: committed (the grand total assumes it).* *Ramification: audience breadth vs depth of finish on the core.*
-- **D7 — Language scope for NL search at launch.** English-only with an honest boundary, or a wider launch (Spanish being the obvious US housing-audience case) with the golden corpus, synonym layer, and refusal quality multiplied per language. A language that parses at 80% is worse than one not offered. *Ramification: who the Impact claim actually includes.*
-- **D8 — Naming the layer.** Calling it the “Muse layer” in-product maximises the Meta-tooling signal to judges and users, and ties a civic-data tool's identity to Meta's brand. Neutral naming (“AI search / Explain”) keeps CivicScope's independence front and centre and lets the submission — not the product — carry the Meta story. *Ramification: product identity vs hackathon signal, permanently, in screenshots that outlive the event.*
+- **D7 — Language scope for NL search at launch.** English-only with an honest boundary, or a wider launch (Spanish being the obvious US housing-audience case) with the golden corpus, synonym layer, and refusal quality multiplied per language. A language that parses at 80% is worse than one not offered. *Ramification: who the Impact claim actually includes.* **RULED 2026-10-25: English-only at launch with an honest boundary.**
+- **D8 — Naming the layer.** Calling it the “Muse layer” in-product maximises the Meta-tooling signal to judges and users, and ties a civic-data tool's identity to Meta's brand. Neutral naming (“AI search / Explain”) keeps CivicScope's independence front and centre and lets the submission — not the product — carry the Meta story. *Ramification: product identity vs hackathon signal, permanently, in screenshots that outlive the event.* **RULED 2026-10-25: “Muse layer” in-product.**
 
 ---
 
 *End of plan (assessment appendix follows, appended after Jev scoring). Companion documents: repo audit + fully-featured re-scope, 2026-10-19.*
+
+*Amendment 2026-10-25 (owner-approved): D1–D8 ruled, dual-track plan choice, §6.4 budget reallocated, runner rule set — see §6.4, §7 S1, and §9. The appendix below is the pre-ruling assessment record and is preserved as written.*
 
 ---
 
